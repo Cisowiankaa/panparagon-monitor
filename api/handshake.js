@@ -1,13 +1,13 @@
 export default async function handler(req, res) {
   try {
-    const response = await fetch('https://hook.eu1.make.com/fmafcj1tzwibcyyo7bpes8j4ysl5vdgm', {
+    const response = await fetch('https://hook.eu1.make.com/93rfikeo83gb1ktnswtct1wq4rab29xr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: 'panparagon_monthly_report',
         source: 'PanParagon Monitor',
         period: '2026-08',
-        report: 'PanParagon Monitor — test integracji v2',
+        report: 'PanParagon Monitor — test integracji v3',
         receiptCount: 3,
         stores: [
           { store: 'Test Sklep A', count: 2 },
