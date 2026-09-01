@@ -5,6 +5,15 @@
   const setText=(id,text)=>{try{const el=document.getElementById(id);if(el)el.textContent=text}catch{}};
   let readPromise=null,readCache=null;
 
+  const requestPersistentStorage=async()=>{
+    try{
+      if(!navigator.storage?.persist)return false;
+      const already=typeof navigator.storage.persisted==='function'&&await navigator.storage.persisted();
+      if(already)return true;
+      return !!(await navigator.storage.persist());
+    }catch{return false}
+  };
+
   const readState=()=>{
     if(readPromise)return readPromise;
     if(!db||typeof db.transaction!=='function')return Promise.reject(new Error('Brak IndexedDB'));
@@ -65,5 +74,9 @@
     }
   };
 
-  window.PanParagonStorageBatch={enabled:true,readBatch:true};
+  requestPersistentStorage().then(granted=>{
+    window.PanParagonStorageBatch.persistent=granted;
+  });
+
+  window.PanParagonStorageBatch={enabled:true,readBatch:true,persistent:false,requestPersistentStorage};
 })();
