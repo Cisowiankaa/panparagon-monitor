@@ -12,6 +12,7 @@
     return [...set].sort((a,b)=>b-a);
   };
   const baseStoreName=()=>{const title=document.getElementById('storeDetailTitle');return (title?.textContent||'').replace(/\s—\s\d{4}$/,'').trim()};
+  const syncYearCount=()=>{const el=document.getElementById('storeYearCount');if(el)el.textContent=availableYears().length};
   const markDetailYear=year=>{
     const title=document.getElementById('storeDetailTitle');
     const sub=title?.parentElement?.querySelector('.sub');
@@ -20,7 +21,7 @@
     const yearTable=document.getElementById('storeYearTable');
     const yearCard=yearTable?.closest('.card');
     if(yearCard){const label=yearCard.querySelector('b');if(label)label.textContent=year?`Podsumowanie roczne — ${year}`:'Podsumowanie roczne'}
-    syncDetailSelector(year);wireYearRows();
+    syncYearCount();syncDetailSelector(year);wireYearRows();
   };
   const clearYearMark=()=>markDetailYear('');
   const ensureDetailSelector=()=>{
@@ -70,18 +71,18 @@
     const name=(tr.querySelectorAll('td')[1]?.textContent||'').trim();if(name)lastStore=name;
     if(Array.isArray(rows))rememberFullRows(rows);
     const year=selectedYear();
-    if(!year){setTimeout(()=>{clearYearMark();ensureDetailSelector();wireYearRows()},0);return}
+    if(!year){setTimeout(()=>{clearYearMark();ensureDetailSelector();wireYearRows();syncYearCount()},0);return}
     if(!Array.isArray(rows))return;
     const original=rows,filtered=rowsForYear(original,year);rememberFullRows(original);rows=filtered;
-    setTimeout(()=>{rows=original;markDetailYear(year);ensureDetailSelector();wireYearRows()},0);
+    setTimeout(()=>{rows=original;markDetailYear(year);ensureDetailSelector();wireYearRows();syncYearCount()},0);
   };
   const install=()=>{
     if(Array.isArray(rows))rememberFullRows(rows);
     const table=storesTable();if(table)table.addEventListener('click',onCapture,true);
     const year=document.getElementById('storeYear');if(year)year.addEventListener('change',()=>{if(Array.isArray(rows))rememberFullRows(rows);if(!year.value)clearYearMark()});
-    const detail=document.getElementById('storeDetail');if(detail)new MutationObserver(()=>{if(detail.classList.contains('on')){if(Array.isArray(rows))rememberFullRows(rows);ensureDetailSelector();wireYearRows()}}).observe(detail,{attributes:true,attributeFilter:['class'],subtree:false});
+    const detail=document.getElementById('storeDetail');if(detail)new MutationObserver(()=>{if(detail.classList.contains('on')){if(Array.isArray(rows))rememberFullRows(rows);ensureDetailSelector();wireYearRows();syncYearCount()}}).observe(detail,{attributes:true,attributeFilter:['class'],subtree:false});
     const yearTable=document.getElementById('storeYearTable');if(yearTable)new MutationObserver(wireYearRows).observe(yearTable,{childList:true,subtree:true});
-    ensureDetailSelector();wireYearRows();
+    ensureDetailSelector();wireYearRows();syncYearCount();
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
