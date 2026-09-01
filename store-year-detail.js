@@ -43,9 +43,8 @@
   const switchDetailYear=year=>{
     const name=lastStore||baseStoreName();if(!name)return;lastStore=name;
     const src=fullRowsCache.length?fullRowsCache:(Array.isArray(rows)?rows.slice():[]);rememberFullRows(src);
-    const mainYear=document.getElementById('storeYear');
-    if(mainYear){mainYear.value=year;mainYear.dispatchEvent(new Event('change',{bubbles:true}))}
     const tr=findStoreRow(name),open=tr?.onclick;
+    const mainYear=document.getElementById('storeYear');if(mainYear)mainYear.value=year;
     if(typeof open==='function'){
       const original=rows;
       rows=year?rowsForYear(src,year):src;
