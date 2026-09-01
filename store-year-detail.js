@@ -42,12 +42,18 @@
   const findStoreRow=name=>[...document.querySelectorAll('#storesTable table tr')].find((tr,i)=>i>0&&(tr.querySelectorAll('td')[1]?.textContent||'').trim()===name);
   const switchDetailYear=year=>{
     const name=lastStore||baseStoreName();if(!name)return;lastStore=name;
-    const mainYear=document.getElementById('storeYear');if(mainYear)mainYear.value=year;
-    const back=document.getElementById('backStores');if(back)back.click();
-    setTimeout(()=>{
-      if(mainYear)mainYear.dispatchEvent(new Event('change',{bubbles:true}));
-      setTimeout(()=>{const tr=findStoreRow(name);if(tr)tr.click();else{markDetailYear(year);ensureDetailSelector()}},40);
-    },0);
+    const src=fullRowsCache.length?fullRowsCache:(Array.isArray(rows)?rows.slice():[]);rememberFullRows(src);
+    const mainYear=document.getElementById('storeYear');
+    if(mainYear){mainYear.value=year;mainYear.dispatchEvent(new Event('change',{bubbles:true}))}
+    const tr=findStoreRow(name),open=tr?.onclick;
+    if(typeof open==='function'){
+      const original=rows;
+      rows=year?rowsForYear(src,year):src;
+      try{open.call(tr)}finally{rows=original}
+      markDetailYear(year);ensureDetailSelector();wireYearRows();
+      return;
+    }
+    markDetailYear(year);ensureDetailSelector();wireYearRows();
   };
   const wireYearRows=()=>{
     const box=document.getElementById('storeYearTable');if(!box)return;
