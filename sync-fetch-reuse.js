@@ -3,6 +3,7 @@
   const baseAutoSync=autoSync;
   const baseFetchRows=fetchCloudRows;
   const baseFetchHashes=fetchCloudHashes;
+  const baseLogSync=typeof logSync==='function'?logSync:null;
   let autoDepth=0,rowsFresh=false;
 
   fetchCloudRows=async function(...args){
@@ -18,6 +19,13 @@
     }
     return baseFetchHashes(...args);
   };
+
+  if(baseLogSync){
+    logSync=async function(direction,...args){
+      if(autoDepth>0&&direction==='push')return;
+      return baseLogSync(direction,...args);
+    };
+  }
 
   autoSync=async function(...args){
     autoDepth++;
