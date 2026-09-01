@@ -1,4 +1,14 @@
 (()=>{
+  const startupText=(id,text)=>{try{const el=document.getElementById(id);if(el)el.textContent=text}catch{}};
+  startupText('rc','…');
+  startupText('sc','…');
+  startupText('mc','…');
+  startupText('localCount','…');
+  startupText('topm','Ładowanie danych lokalnych…');
+  for(const id of ['yearly','rank','hist','monthsTable','storesTable']){
+    try{const el=document.getElementById(id);if(el)el.innerHTML='<div class="empty">Ładowanie danych lokalnych…</div>'}catch{}
+  }
+
   if(typeof persistRows!=='function')return;
   const originalPersist=persistRows;
   const originalDbGet=typeof dbGet==='function'?dbGet:null;
@@ -74,9 +84,8 @@
     }
   };
 
+  window.PanParagonStorageBatch={enabled:true,readBatch:true,persistent:false,requestPersistentStorage};
   requestPersistentStorage().then(granted=>{
     window.PanParagonStorageBatch.persistent=granted;
   });
-
-  window.PanParagonStorageBatch={enabled:true,readBatch:true,persistent:false,requestPersistentStorage};
 })();
