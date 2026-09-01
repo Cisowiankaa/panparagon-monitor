@@ -3,10 +3,11 @@
   const baseAutoSync=autoSync;
   const baseFetchRows=fetchCloudRows;
   const baseFetchHashes=fetchCloudHashes;
+  const baseRefreshUser=typeof refreshUser==='function'?refreshUser:null;
   const baseLogSync=typeof logSync==='function'?logSync:null;
   const baseMergeRows=typeof mergeRows==='function'?mergeRows:null;
   const baseRender=typeof render==='function'?render:null;
-  let autoDepth=0,freshHashReads=0,autoAdded=0;
+  let autoDepth=0,freshHashReads=0,autoAdded=0,autoUserChecked=false,autoUserValue=null;
 
   fetchCloudRows=async function(...args){
     const out=await baseFetchRows(...args);
@@ -21,6 +22,15 @@
     }
     return baseFetchHashes(...args);
   };
+
+  if(baseRefreshUser){
+    refreshUser=async function(...args){
+      if(autoDepth>0&&autoUserChecked)return autoUserValue;
+      const out=await baseRefreshUser(...args);
+      if(autoDepth>0){autoUserChecked=true;autoUserValue=out}
+      return out;
+    };
+  }
 
   if(baseLogSync){
     logSync=async function(direction,...args){
@@ -46,11 +56,11 @@
 
   autoSync=async function(...args){
     autoDepth++;
-    if(autoDepth===1){freshHashReads=0;autoAdded=0}
+    if(autoDepth===1){freshHashReads=0;autoAdded=0;autoUserChecked=false;autoUserValue=null}
     try{return await baseAutoSync(...args)}
     finally{
       autoDepth=Math.max(0,autoDepth-1);
-      if(autoDepth===0){freshHashReads=0;autoAdded=0}
+      if(autoDepth===0){freshHashReads=0;autoAdded=0;autoUserChecked=false;autoUserValue=null}
     }
   };
 
@@ -58,6 +68,7 @@
     isAutoSync:()=>autoDepth>0,
     hasFreshCloudRows:()=>freshHashReads>0,
     remainingFreshHashReads:()=>freshHashReads,
+    hasCachedUser:()=>autoDepth>0&&autoUserChecked,
     autoAdded:()=>autoAdded
   };
 })();
