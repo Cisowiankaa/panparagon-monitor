@@ -1,9 +1,7 @@
 {
   "version": 2,
-  "cleanUrls": true,
-  "trailingSlash": false,
   "routes": [
-    { "src": "^/$", "dest": "/api/app-shell.js" },
+    { "src": "/", "dest": "/api/app-shell.js" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
