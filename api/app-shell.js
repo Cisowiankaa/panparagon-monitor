@@ -5,10 +5,10 @@ export default async function handler(req,res){
     const r=await fetch(`${proto}://${host}/index.html`,{headers:{'cache-control':'no-cache'}});
     if(!r.ok) return res.status(r.status).send(await r.text());
     let html=await r.text();
-    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=2"></script><script src="/sync-hash-cache.js?v=2"></script><script src="/sync-retry.js?v=5"></script><script src="/sync-ui-batch.js?v=1"></script><script src="/sync-fetch-reuse.js?v=3"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=1"></script><script src="/store-year-detail.js?v=12"></script><script src="/store-stats.js?v=4"></script></body>');
+    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=3"></script><script src="/sync-hash-cache.js?v=2"></script><script src="/sync-retry.js?v=5"></script><script src="/sync-ui-batch.js?v=1"></script><script src="/sync-fetch-reuse.js?v=3"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=1"></script><script src="/store-year-detail.js?v=12"></script><script src="/store-stats.js?v=4"></script></body>');
     else {
-      if(!html.includes('/storage-batch.js')) html=html.replace(/(<script src="\/sync-hash-cache\.js\?v=\d+"><\/script>)/,'<script src="/storage-batch.js?v=2"></script>$1');
-      else html=html.replace(/\/storage-batch\.js\?v=\d+/g,'/storage-batch.js?v=2');
+      if(!html.includes('/storage-batch.js')) html=html.replace(/(<script src="\/sync-hash-cache\.js\?v=\d+"><\/script>)/,'<script src="/storage-batch.js?v=3"></script>$1');
+      else html=html.replace(/\/storage-batch\.js\?v=\d+/g,'/storage-batch.js?v=3');
       if(!html.includes('/sync-hash-cache.js')) html=html.replace(/(<script src="\/sync-retry\.js\?v=\d+"><\/script>)/,'<script src="/sync-hash-cache.js?v=2"></script>$1');
       else html=html.replace(/\/sync-hash-cache\.js\?v=\d+/g,'/sync-hash-cache.js?v=2');
       html=html.replace(/\/sync-retry\.js\?v=\d+/g,'/sync-retry.js?v=5');
