@@ -4,17 +4,17 @@
   const baseFetchRows=fetchCloudRows;
   const baseFetchHashes=fetchCloudHashes;
   const baseLogSync=typeof logSync==='function'?logSync:null;
-  let autoDepth=0,rowsFresh=false;
+  let autoDepth=0,freshHashReads=0;
 
   fetchCloudRows=async function(...args){
     const out=await baseFetchRows(...args);
-    if(autoDepth>0)rowsFresh=true;
+    if(autoDepth>0)freshHashReads=2;
     return out;
   };
 
   fetchCloudHashes=async function(...args){
-    if(autoDepth>0&&rowsFresh&&cloudHashes instanceof Set){
-      rowsFresh=false;
+    if(autoDepth>0&&freshHashReads>0&&cloudHashes instanceof Set){
+      freshHashReads--;
       return cloudHashes;
     }
     return baseFetchHashes(...args);
@@ -29,16 +29,17 @@
 
   autoSync=async function(...args){
     autoDepth++;
-    if(autoDepth===1)rowsFresh=false;
+    if(autoDepth===1)freshHashReads=0;
     try{return await baseAutoSync(...args)}
     finally{
       autoDepth=Math.max(0,autoDepth-1);
-      if(autoDepth===0)rowsFresh=false;
+      if(autoDepth===0)freshHashReads=0;
     }
   };
 
   window.PanParagonSyncFetchReuse={
     isAutoSync:()=>autoDepth>0,
-    hasFreshCloudRows:()=>rowsFresh
+    hasFreshCloudRows:()=>freshHashReads>0,
+    remainingFreshHashReads:()=>freshHashReads
   };
 })();
