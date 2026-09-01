@@ -1,3 +1,4 @@
+// shell: store year filters synchronized
 export default async function handler(req,res){
   try{
     const proto=(req.headers['x-forwarded-proto']||'https').split(',')[0];
