@@ -5,7 +5,7 @@ export default async function handler(req,res){
     const r=await fetch(`${proto}://${host}/index.html`,{headers:{'cache-control':'no-cache'}});
     if(!r.ok) return res.status(r.status).send(await r.text());
     let html=await r.text();
-    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=3"></script><script src="/sync-hash-cache.js?v=2"></script><script src="/sync-retry.js?v=5"></script><script src="/sync-ui-batch.js?v=1"></script><script src="/sync-fetch-reuse.js?v=3"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=1"></script><script src="/store-year-detail.js?v=13"></script><script src="/store-stats.js?v=4"></script></body>');
+    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=3"></script><script src="/sync-hash-cache.js?v=2"></script><script src="/sync-retry.js?v=5"></script><script src="/sync-ui-batch.js?v=1"></script><script src="/sync-fetch-reuse.js?v=3"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=2"></script><script src="/store-year-detail.js?v=14"></script><script src="/store-stats.js?v=4"></script></body>');
     else {
       if(!html.includes('/storage-batch.js')) html=html.replace(/(<script src="\/sync-hash-cache\.js\?v=\d+"><\/script>)/,'<script src="/storage-batch.js?v=3"></script>$1');
       else html=html.replace(/\/storage-batch\.js\?v=\d+/g,'/storage-batch.js?v=3');
@@ -27,9 +27,10 @@ export default async function handler(req,res){
       else html=html.replace(/\/store-fast-refresh\.js\?v=\d+/g,'/store-fast-refresh.js?v=5');
       if(!html.includes('/store-sort.js')) html=html.replace('</body>','<script src="/store-sort.js?v=2"></script></body>');
       else html=html.replace(/\/store-sort\.js\?v=\d+/g,'/store-sort.js?v=2');
-      if(!html.includes('/store-filter.js')) html=html.replace('</body>','<script src="/store-filter.js?v=1"></script></body>');
-      if(!html.includes('/store-year-detail.js')) html=html.replace('</body>','<script src="/store-year-detail.js?v=13"></script></body>');
-      else html=html.replace(/\/store-year-detail\.js\?v=\d+/g,'/store-year-detail.js?v=13');
+      if(!html.includes('/store-filter.js')) html=html.replace('</body>','<script src="/store-filter.js?v=2"></script></body>');
+      else html=html.replace(/\/store-filter\.js\?v=\d+/g,'/store-filter.js?v=2');
+      if(!html.includes('/store-year-detail.js')) html=html.replace('</body>','<script src="/store-year-detail.js?v=14"></script></body>');
+      else html=html.replace(/\/store-year-detail\.js\?v=\d+/g,'/store-year-detail.js?v=14');
       if(!html.includes('/store-stats.js')) html=html.replace('</body>','<script src="/store-stats.js?v=4"></script></body>');
       else html=html.replace(/\/store-stats\.js\?v=\d+/g,'/store-stats.js?v=4');
     }
