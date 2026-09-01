@@ -1,6 +1,6 @@
 (()=>{
   if(typeof window.render!=='function')return;
-  const original=window.render;
+  const original=window.render,originalReport=typeof window.buildReport==='function'?window.buildReport:null;
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const dcache=()=>window.PanParagonDateCache;
   const getDate=r=>{const c=dcache();return c&&typeof c.get==='function'?c.get(r):rowDate(r)};
@@ -19,6 +19,7 @@
     }
     return{months,years,allStores,monthStores,undated,me:Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])),yearEntries:Object.entries(years).sort((a,b)=>b[0].localeCompare(a[0])),ae:Object.entries(allStores).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'))};
   };
+  const ensureBase=()=>{const key=makeKey();if(!base||key!==baseKey){base=buildBase();baseKey=key}return base};
   const renderFilter=selected=>{
     const stores=selected?(base.monthStores[selected]||{}):base.allStores;
     const count=selected?(base.months[selected]||0):rows.length;
@@ -44,5 +45,13 @@
       if(save&&db)persistRows().catch(()=>{});updateMode();updateSyncCounters();
     }catch(e){console.warn('Fast render fallback',e);base=null;baseKey='';return original(save)}
   };
-  window.render=fastRender;
+  const fastReport=()=>{
+    try{
+      const data=ensureBase(),sel=$('month').value,stores=sel?(data.monthStores[sel]||{}):data.allStores,count=sel?(data.months[sel]||0):rows.length,a=Object.entries(stores).sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0],'pl')),L=['PanParagon Monitor — raport',`Okres: ${sel?ml(sel):'wszystkie miesiące'}`,`Liczba paragonów: ${count}`,'','Ranking sklepów:'];
+      a.forEach(([n,c],i)=>L.push(`${i+1}. ${n} — ${c}`));
+      const text=L.join('\n');$('report').value=text;
+      return{type:'panparagon_monthly_report',source:'PanParagon Monitor',period:sel||'all',report:text,receiptCount:count,stores:a.map(([store,count])=>({store,count})),sentAt:new Date().toISOString()};
+    }catch(e){console.warn('Fast report fallback',e);return originalReport?originalReport():null}
+  };
+  window.render=fastRender;window.buildReport=fastReport;window.PanParagonMainIndex={get:ensureBase};
 })();
