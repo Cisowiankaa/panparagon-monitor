@@ -1,10 +1,10 @@
 (()=>{
   let lastStore='',fullRowsCache=[],cacheSize=-1;
-  const yearRowsCache=new Map(),yearsCache=new Map(),storeRowsCache=new Map(),dateCache=new WeakMap();
+  const yearRowsCache=new Map(),yearsCache=new Map(),storeRowsCache=new Map();
   const selectedYear=()=>document.getElementById('storeYear')?.value||'';
   const storesTable=()=>document.getElementById('storesTable');
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
-  const cachedRowDate=r=>{if(!r||typeof r!=='object')return rowDate(r);const hit=dateCache.get(r);if(hit&&hit.col===dateCol)return hit.date;const d=rowDate(r);dateCache.set(r,{col:dateCol,date:d});return d};
+  const cachedRowDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const rebuildIndex=src=>{
     yearRowsCache.clear();yearsCache.clear();storeRowsCache.clear();
     for(const r of src){
