@@ -14,6 +14,7 @@
     const yearCard=yearTable?.closest('.card');
     if(yearCard){const label=yearCard.querySelector('b');if(label)label.textContent=year?`Podsumowanie roczne — ${year}`:'Podsumowanie roczne'}
     syncDetailSelector(year);
+    wireYearRows();
   };
   const clearYearMark=()=>markDetailYear('');
   const ensureDetailSelector=()=>{
@@ -42,21 +43,33 @@
       setTimeout(()=>{const tr=findStoreRow(name);if(tr)tr.click()},30);
     },0);
   };
+  const wireYearRows=()=>{
+    const box=document.getElementById('storeYearTable');if(!box)return;
+    box.querySelectorAll('table tr').forEach((tr,i)=>{
+      if(i===0||tr.dataset.yearWired)return;
+      const first=tr.querySelector('td');const year=(first?.textContent||'').trim();
+      if(!/^\d{4}$/.test(year))return;
+      tr.dataset.yearWired='1';tr.dataset.year=year;tr.style.cursor='pointer';tr.title=`Pokaż tylko rok ${year}`;
+      if(first)first.innerHTML=`<button type="button" style="padding:0;border:0;background:transparent;color:var(--a);font-weight:800;cursor:pointer">${year}</button>`;
+      tr.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();switchDetailYear(year)});
+    });
+  };
   const onCapture=e=>{
     const table=storesTable();if(!table||!table.contains(e.target))return;
     const tr=e.target.closest('tr');if(!tr||!table.contains(tr)||tr.rowIndex===0)return;
     const name=(tr.querySelectorAll('td')[1]?.textContent||'').trim();if(name)lastStore=name;
     const year=selectedYear();
-    if(!year){setTimeout(()=>{clearYearMark();ensureDetailSelector()},0);return}
+    if(!year){setTimeout(()=>{clearYearMark();ensureDetailSelector();wireYearRows()},0);return}
     if(!Array.isArray(rows))return;
     const original=rows,filtered=rowsForYear(original,year);rows=filtered;
-    setTimeout(()=>{rows=original;markDetailYear(year);ensureDetailSelector()},0);
+    setTimeout(()=>{rows=original;markDetailYear(year);ensureDetailSelector();wireYearRows()},0);
   };
   const install=()=>{
     const table=storesTable();if(table)table.addEventListener('click',onCapture,true);
     const year=document.getElementById('storeYear');if(year)year.addEventListener('change',()=>{if(!year.value)clearYearMark()});
-    const detail=document.getElementById('storeDetail');if(detail)new MutationObserver(()=>{if(detail.classList.contains('on'))ensureDetailSelector()}).observe(detail,{attributes:true,attributeFilter:['class'],subtree:false});
-    ensureDetailSelector();
+    const detail=document.getElementById('storeDetail');if(detail)new MutationObserver(()=>{if(detail.classList.contains('on')){ensureDetailSelector();wireYearRows()}}).observe(detail,{attributes:true,attributeFilter:['class'],subtree:false});
+    const yearTable=document.getElementById('storeYearTable');if(yearTable)new MutationObserver(wireYearRows).observe(yearTable,{childList:true,subtree:true});
+    ensureDetailSelector();wireYearRows();
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
