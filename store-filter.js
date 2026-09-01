@@ -1,3 +1,4 @@
+// deployment marker: synchronized store year filters
 (()=>{
   let query='',year='';
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
