@@ -2,7 +2,7 @@
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const currentStore=()=>{const api=window.PanParagonStoreDetails,name=api&&typeof api.getCurrentStore==='function'?api.getCurrentStore():'';if(name)return name;return (document.getElementById('storeDetailTitle')?.textContent||'').replace(/\s—\s\d{4}$/,'').trim()};
   const currentYear=()=>document.getElementById('storeDetailYear')?.value||'';
-  let raf=0,lastKey='',lastData=null;
+  let raf=0,lastKey='',lastData=null,fastData=null;
   const buildData=()=>{
     const name=currentStore();if(!name||!Array.isArray(rows))return{years:[],months:{},byYear:{}};
     const months={},byYear={};
@@ -15,7 +15,12 @@
     }
     return{years:Object.keys(byYear).map(Number).sort((a,b)=>b-a),months,byYear};
   };
-  const ensureData=()=>{const name=currentStore(),len=Array.isArray(rows)?rows.length:0,key=`${name}|${len}`;if(key!==lastKey||!lastData){lastKey=key;lastData=buildData()}return lastData};
+  const dataFromFast=payload=>{
+    const months=payload?.allMonths||{},byYear={};
+    for(const [k,n] of Object.entries(months)){const y=Number(k.slice(0,4));const ym=byYear[y]||(byYear[y]={months:{},total:0});ym.months[k]=n;ym.total+=n}
+    return{years:Object.keys(byYear).map(Number).sort((a,b)=>b-a),months,byYear};
+  };
+  const ensureData=()=>{const name=currentStore();if(fastData&&fastData.store===name)return fastData.data;const len=Array.isArray(rows)?rows.length:0,key=`${name}|${len}`;if(key!==lastKey||!lastData){lastKey=key;lastData=buildData()}return lastData};
   const entriesForYear=(data,year)=>Object.entries(year?(data.byYear[Number(year)]?.months||{}):data.months).sort((a,b)=>a[0].localeCompare(b[0]));
   const avgForYear=(data,year)=>{const entries=entriesForYear(data,year),active=entries.length,total=entries.reduce((s,[,n])=>s+n,0);return{avg:active?total/active:0,active,total}};
   const ensure=()=>{
@@ -41,9 +46,10 @@
     if(yoyEl&&yoyText){if(!target||!nowStats?.active||!prevStats?.active){yoyEl.textContent='—';yoyEl.className='val';yoyText.textContent=prev?`Brak pełnych danych: ${target} vs ${prev}`:'Brak danych porównawczych'}else{const diff=nowStats.avg-prevStats.avg,pct=prevStats.avg?diff/prevStats.avg*100:null,stable=Math.abs(pct??diff)<1,label=stable?'Stabilnie':diff>0?'Wzrost':'Spadek',cls=stable?'':diff>0?'oktxt':'badtxt';yoyEl.textContent=pct===null?`${diff>0?'+':''}${diff.toFixed(1)}`:`${pct>0?'+':''}${pct.toFixed(1)}%`;yoyEl.className='val '+cls;yoyText.textContent=`${label} · ${target}: ${nowStats.avg.toFixed(1)} vs ${prev}: ${prevStats.avg.toFixed(1)}`}}
   };
   const scheduleRender=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(render)};
-  const invalidate=()=>{lastKey='';lastData=null;scheduleRender()};
+  const invalidate=()=>{lastKey='';lastData=null;fastData=null;scheduleRender()};
   const install=()=>{
     ensure();scheduleRender();
+    document.addEventListener('panparagon:store-fast-data',e=>{const p=e.detail||{};fastData={store:p.store,data:dataFromFast(p)};scheduleRender()});
     document.addEventListener('panparagon:store-detail-updated',scheduleRender);
     document.addEventListener('panparagon:data-changed',invalidate);
     const detail=document.getElementById('storeDetail');if(detail)new MutationObserver(()=>{if(detail.classList.contains('on'))scheduleRender()}).observe(detail,{attributes:true,attributeFilter:['class']});
