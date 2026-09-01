@@ -9,17 +9,17 @@ export default async function handler(req,res){
     const oldStartup="(async()=>{await initStorage();await consumeAuthHash();await refreshUser();$('webhook').value=webhook();$('deviceName').value=deviceName();showLastSync();if(user&&navigator.onLine)await autoSync('przy uruchomieniu');if(headers.length){guess();render(false)}else updateMode();if(user){await loadHistory();await runDiagnostics(true)}else updateSyncCounters()})();";
     const newStartup="(async()=>{await initStorage();$('webhook').value=webhook();$('deviceName').value=deviceName();showLastSync();if(headers.length){guess();render(false)}else updateMode();await new Promise(resolve=>requestAnimationFrame(resolve));await consumeAuthHash();await refreshUser();if(user&&navigator.onLine){autoSync('przy uruchomieniu').catch(()=>{})}else updateSyncCounters()})();";
     if(html.includes(oldStartup)) html=html.replace(oldStartup,newStartup);
-    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=3"></script><script src="/sync-hash-cache.js?v=2"></script><script src="/sync-retry.js?v=5"></script><script src="/sync-ui-batch.js?v=1"></script><script src="/sync-fetch-reuse.js?v=3"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=2"></script><script src="/store-year-detail.js?v=14"></script><script src="/store-stats.js?v=4"></script></body>');
+    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=4"></script><script src="/sync-hash-cache.js?v=3"></script><script src="/sync-retry.js?v=5"></script><script src="/sync-ui-batch.js?v=1"></script><script src="/sync-fetch-reuse.js?v=4"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=2"></script><script src="/store-year-detail.js?v=14"></script><script src="/store-stats.js?v=4"></script></body>');
     else {
-      if(!html.includes('/storage-batch.js')) html=html.replace(/(<script src="\/sync-hash-cache\.js\?v=\d+"><\/script>)/,'<script src="/storage-batch.js?v=3"></script>$1');
-      else html=html.replace(/\/storage-batch\.js\?v=\d+/g,'/storage-batch.js?v=3');
-      if(!html.includes('/sync-hash-cache.js')) html=html.replace(/(<script src="\/sync-retry\.js\?v=\d+"><\/script>)/,'<script src="/sync-hash-cache.js?v=2"></script>$1');
-      else html=html.replace(/\/sync-hash-cache\.js\?v=\d+/g,'/sync-hash-cache.js?v=2');
+      if(!html.includes('/storage-batch.js')) html=html.replace(/(<script src="\/sync-hash-cache\.js\?v=\d+"><\/script>)/,'<script src="/storage-batch.js?v=4"></script>$1');
+      else html=html.replace(/\/storage-batch\.js\?v=\d+/g,'/storage-batch.js?v=4');
+      if(!html.includes('/sync-hash-cache.js')) html=html.replace(/(<script src="\/sync-retry\.js\?v=\d+"><\/script>)/,'<script src="/sync-hash-cache.js?v=3"></script>$1');
+      else html=html.replace(/\/sync-hash-cache\.js\?v=\d+/g,'/sync-hash-cache.js?v=3');
       html=html.replace(/\/sync-retry\.js\?v=\d+/g,'/sync-retry.js?v=5');
       if(!html.includes('/sync-ui-batch.js')) html=html.replace(/(<script src="\/sync-retry\.js\?v=\d+"><\/script>)/,'$1<script src="/sync-ui-batch.js?v=1"></script>');
       else html=html.replace(/\/sync-ui-batch\.js\?v=\d+/g,'/sync-ui-batch.js?v=1');
-      if(!html.includes('/sync-fetch-reuse.js')) html=html.replace(/(<script src="\/sync-ui-batch\.js\?v=\d+"><\/script>)/,'$1<script src="/sync-fetch-reuse.js?v=3"></script>');
-      else html=html.replace(/\/sync-fetch-reuse\.js\?v=\d+/g,'/sync-fetch-reuse.js?v=3');
+      if(!html.includes('/sync-fetch-reuse.js')) html=html.replace(/(<script src="\/sync-ui-batch\.js\?v=\d+"><\/script>)/,'$1<script src="/sync-fetch-reuse.js?v=4"></script>');
+      else html=html.replace(/\/sync-fetch-reuse\.js\?v=\d+/g,'/sync-fetch-reuse.js?v=4');
       if(!html.includes('/sync-filter.js')) html=html.replace('</body>','<script src="/sync-filter.js?v=1"></script></body>');
       if(!html.includes('/store-date-cache.js')) html=html.replace(/(<script src="\/sync-filter\.js\?v=\d+"><\/script>)/,'$1<script src="/store-date-cache.js?v=1"></script>');
       else html=html.replace(/\/store-date-cache\.js\?v=\d+/g,'/store-date-cache.js?v=1');
