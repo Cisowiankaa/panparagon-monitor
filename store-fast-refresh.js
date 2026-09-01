@@ -1,7 +1,6 @@
 (()=>{
   const api=window.PanParagonStoreDetails;if(!api)return;
-  const dateCache=new WeakMap();
-  const cachedDate=r=>{if(!r||typeof r!=='object')return rowDate(r);const col=String(dateCol||''),hit=dateCache.get(r);if(hit&&hit.col===col)return hit.date;const date=rowDate(r);dateCache.set(r,{col,date});return date};
+  const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const prevMonthKey=k=>{const [y,m]=k.split('-').map(Number),d=new Date(y,m-2,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`};
   const prevYearKey=k=>{const [y,m]=k.split('-');return `${Number(y)-1}-${m}`};
   const localDayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
