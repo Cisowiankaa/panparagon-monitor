@@ -1,5 +1,5 @@
 (()=>{
-  let lastStore='',fullRowsCache=[],cacheSize=-1;
+  let lastStore='',fullRowsCache=[],cacheSize=-1,indexedDateCol='',indexedStoreCol='';
   const yearRowsCache=new Map(),yearsCache=new Map(),storeRowsCache=new Map();
   const selectedYear=()=>document.getElementById('storeYear')?.value||'';
   const storesTable=()=>document.getElementById('storesTable');
@@ -24,9 +24,10 @@
   };
   const rememberFullRows=src=>{
     if(!Array.isArray(src))return;
-    if(src===fullRowsCache&&src.length===cacheSize)return;
-    if(src.length!==cacheSize){cacheSize=src.length;fullRowsCache=src;rebuildIndex(src);return;}
-    fullRowsCache=src;
+    const dc=String(dateCol||''),sc=String(storeCol||'');
+    const sourceChanged=src!==fullRowsCache,sizeChanged=src.length!==cacheSize,mappingChanged=dc!==indexedDateCol||sc!==indexedStoreCol;
+    if(!sourceChanged&&!sizeChanged&&!mappingChanged)return;
+    fullRowsCache=src;cacheSize=src.length;indexedDateCol=dc;indexedStoreCol=sc;rebuildIndex(src);
   };
   const fullRows=()=>fullRowsCache.length?fullRowsCache:(Array.isArray(rows)?rows:[]);
   const rowsForYear=(all,year,name=lastStore||baseStoreName())=>{const key=`${name}|${year}`;if(yearRowsCache.has(key))return yearRowsCache.get(key);const out=[];for(const r of all){try{if(name&&storeName(r)!==name)continue;const d=cachedRowDate(r);if(d&&String(d.getFullYear())===String(year))out.push(r)}catch{}}yearRowsCache.set(key,out);return out};
@@ -34,7 +35,8 @@
   const baseStoreName=()=>{const title=document.getElementById('storeDetailTitle');return (title?.textContent||'').replace(/\s—\s\d{4}$/,'').trim()};
   const availableYears=()=>{const name=lastStore||baseStoreName(),cached=yearsCache.get(name);if(cached)return [...cached].sort((a,b)=>b-a);const set=new Set();for(const r of rowsForStore(name)){try{const y=cachedRowDate(r)?.getFullYear();if(y)set.add(y)}catch{}}const out=[...set].sort((a,b)=>b-a);yearsCache.set(name,new Set(out));return out};
   const yearProgressCount=year=>{const ys=availableYears();if(!year)return ys.length;const y=Number(year);return ys.filter(v=>Number(v)<=y).length};
-  const yearHistoryMeta=year=>{const ys=availableYears().map(Number).sort((a,b)=>a-b);if(!ys.length)return 'Brak historii';const first=ys[0],last=year?Number(year):ys[ys.length-1],count=yearProgressCount(year);return year?`${count}. rok historii · ${first}–${last}`:`${count} ${count===1?'rok':'lata'} historii · ${first}–${ys[ys.length-1]}`};
+  const yearWord=n=>n===1?'rok':(n%10>=2&&n%10<=4&&(n%100<12||n%100>14)?'lata':'lat');
+  const yearHistoryMeta=year=>{const ys=availableYears().map(Number).sort((a,b)=>a-b);if(!ys.length)return 'Brak historii';const first=ys[0],last=year?Number(year):ys[ys.length-1],count=yearProgressCount(year);return year?`${count}. rok historii · ${first}–${last}`:`${count} ${yearWord(count)} historii · ${first}–${ys[ys.length-1]}`};
   const setYearHistoryLabel=year=>{const val=document.getElementById('storeYearCount'),card=val?.closest('.card'),lab=card?.querySelector('.lab');if(lab){lab.textContent=year?'Rok historii':'Lata historii';lab.title=year?'Numer roku historii sklepu do wybranego roku':'Łączna liczba lat historii sklepu'}if(card){let meta=document.getElementById('storeYearMeta');if(!meta){meta=document.createElement('div');meta.id='storeYearMeta';meta.className='small';meta.style.marginTop='4px';val?.insertAdjacentElement('afterend',meta)}if(meta)meta.textContent=yearHistoryMeta(year)}};
   const ensureDetailSelector=()=>{const detail=document.getElementById('storeDetail'),title=document.getElementById('storeDetailTitle');if(!detail||!title)return null;let box=document.getElementById('storeDetailYearBox');if(!box){box=document.createElement('div');box.id='storeDetailYearBox';box.className='actions';box.style.marginTop='14px';box.innerHTML='<label class="small" for="storeDetailYear" style="align-self:center">Rok:</label><select id="storeDetailYear"><option value="">Wszystkie lata</option></select>';const sub=title.parentElement?.querySelector('.sub');(sub||title).insertAdjacentElement('afterend',box);document.getElementById('storeDetailYear').addEventListener('change',e=>switchDetailYear(e.target.value))}const sel=document.getElementById('storeDetailYear'),current=sel.value,ys=availableYears();sel.innerHTML='<option value="">Wszystkie lata</option>'+ys.map(y=>`<option value="${y}">${y}</option>`).join('');if([...sel.options].some(o=>o.value===current))sel.value=current;return sel};
   const syncDetailSelector=year=>{const sel=ensureDetailSelector();if(sel&&[...sel.options].some(o=>o.value===String(year)))sel.value=String(year);else if(sel&&!year)sel.value=''};
