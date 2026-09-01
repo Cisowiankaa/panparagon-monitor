@@ -21,7 +21,12 @@
       }catch{}
     }
   };
-  const rememberFullRows=src=>{if(Array.isArray(src)&&src.length>=fullRowsCache.length){if(src.length!==cacheSize){cacheSize=src.length;fullRowsCache=src.slice();rebuildIndex(fullRowsCache)}else fullRowsCache=src.slice()}};
+  const rememberFullRows=src=>{
+    if(!Array.isArray(src))return;
+    if(src===fullRowsCache&&src.length===cacheSize)return;
+    if(src.length!==cacheSize){cacheSize=src.length;fullRowsCache=src;rebuildIndex(src);return;}
+    fullRowsCache=src;
+  };
   const fullRows=()=>fullRowsCache.length?fullRowsCache:(Array.isArray(rows)?rows:[]);
   const rowsForYear=(all,year,name=lastStore||baseStoreName())=>{const key=`${name}|${year}`;if(yearRowsCache.has(key))return yearRowsCache.get(key);const out=[];for(const r of all){try{if(name&&storeName(r)!==name)continue;const d=rowDate(r);if(d&&String(d.getFullYear())===String(year))out.push(r)}catch{}}yearRowsCache.set(key,out);return out};
   const rowsForStore=(name=lastStore||baseStoreName())=>storeRowsCache.get(name)||fullRows().filter(r=>storeName(r)===name);
