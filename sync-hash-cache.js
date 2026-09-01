@@ -16,6 +16,7 @@
     const k=originalRowKey(row);keyCache.set(row,k);return k;
   };
   const resetPending=()=>{pendingRowsRef=null;pendingLen=-1;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1};
+  const invalidateAggregates=()=>{localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;hashBuckets=null;resetPending()};
 
   const ensureLocal=()=>{
     const src=Array.isArray(rows)?rows:[];
@@ -29,7 +30,6 @@
   };
 
   rowHash=cachedRowHash;
-  rowKey=cachedRowKey;
   mergeRows=incoming=>{
     ensureLocal();let added=0,dup=0;
     for(const r of incoming||[]){
@@ -64,8 +64,9 @@
   window.PanParagonHashCache={
     get:cachedRowHash,
     key:cachedRowKey,
-    invalidate:()=>{hashCache=new WeakMap();keyCache=new WeakMap();localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;hashBuckets=null;resetPending()},
+    invalidate:()=>{hashCache=new WeakMap();keyCache=new WeakMap();invalidateAggregates()},
+    invalidateAggregates,
     invalidatePending:resetPending
   };
-  document.addEventListener('panparagon:data-changed',()=>window.PanParagonHashCache.invalidate());
+  document.addEventListener('panparagon:data-changed',invalidateAggregates);
 })();
