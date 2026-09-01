@@ -9,15 +9,15 @@
     box.innerHTML='<div class="actions"><input id="storeSearch" type="search" placeholder="Szukaj sklepu…" style="min-width:260px;flex:1"><select id="storeYear"><option value="">Wszystkie lata</option></select><button id="storeFilterClear">Wyczyść filtry</button></div><div id="storeFilterInfo" class="small" style="margin-top:9px">Wszystkie sklepy ze wszystkich lat.</div>';
     table.before(box);
     document.getElementById('storeSearch').addEventListener('input',e=>{query=e.target.value.trim().toLocaleLowerCase('pl');renderFiltered()});
-    document.getElementById('storeYear').addEventListener('change',e=>{year=e.target.value;renderFiltered()});
-    document.getElementById('storeFilterClear').onclick=()=>{query='';year='';document.getElementById('storeSearch').value='';document.getElementById('storeYear').value='';renderFiltered()};
+    document.getElementById('storeYear').addEventListener('change',e=>{year=e.target.value;renderFiltered();document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}))});
+    document.getElementById('storeFilterClear').onclick=()=>{query='';year='';document.getElementById('storeSearch').value='';document.getElementById('storeYear').value='';renderFiltered();document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year:''}}))};
     refreshYears();
   };
   const refreshYears=()=>{
     const s=document.getElementById('storeYear');if(!s)return;
     const old=year;
     s.innerHTML='<option value="">Wszystkie lata</option>'+years().map(y=>`<option value="${y}">${y}</option>`).join('');
-    if(old&&[...s.options].some(o=>o.value===old))s.value=old;else year='';
+    if(old&&[...s.options].some(o=>o.value===old))s.value=old;else if(old)year='';
   };
   const renderFiltered=()=>{
     ensureControls();refreshYears();const box=document.getElementById('storesTable');if(!box)return;
@@ -27,10 +27,20 @@
     box.innerHTML=list.length?`<table><tr><th>#</th><th>Sklep</th><th>Paragony${year?' · '+year:''}</th></tr>${list.map(([n,c],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td><b>${c}</b></td></tr>`).join('')}</table>`:'<div class="empty">Brak sklepów pasujących do filtrów.</div>';
     const info=document.getElementById('storeFilterInfo');if(info)info.textContent=`Znaleziono sklepów: ${list.length} · paragony: ${list.reduce((s,x)=>s+x[1],0)}${year?' · rok '+year:' · wszystkie lata'}${query?' · wyszukiwanie: „'+query+'”':''}.`;
   };
+  const setYear=(value,opts={})=>{
+    ensureControls();refreshYears();
+    const next=String(value||''),s=document.getElementById('storeYear');
+    year=s&&[...s.options].some(o=>o.value===next)?next:'';
+    if(s)s.value=year;
+    if(opts.render!==false)renderFiltered();
+    if(opts.notify!==false)document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}));
+    return year;
+  };
   const install=()=>{
     ensureControls();
     document.querySelectorAll('#nav button').forEach(b=>{if(b.dataset.v==='stores')b.addEventListener('click',()=>setTimeout(renderFiltered,0))});
     renderFiltered();
   };
+  window.PanParagonStoreFilter={getYear:()=>year,setYear,render:renderFiltered,refreshYears};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
