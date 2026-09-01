@@ -1,8 +1,8 @@
 (()=>{
-  if(typeof rowHash!=='function'||typeof getUnsyncedRows!=='function'||typeof getCloudOnlyCount!=='function')return;
-  const originalRowHash=rowHash;
-  let hashCache=new WeakMap();
-  let localRowsRef=null,localLen=-1,localHashes=null,localEntries=null;
+  if(typeof rowHash!=='function'||typeof rowKey!=='function'||typeof mergeRows!=='function'||typeof getUnsyncedRows!=='function'||typeof getCloudOnlyCount!=='function')return;
+  const originalRowHash=rowHash,originalRowKey=rowKey;
+  let hashCache=new WeakMap(),keyCache=new WeakMap();
+  let localRowsRef=null,localLen=-1,localHashes=null,localEntries=null,hashBuckets=null;
   let pendingRowsRef=null,pendingLen=-1,pendingCloudRef=null,pendingCloudSize=-1,pendingRows=null;
 
   const cachedRowHash=row=>{
@@ -10,18 +10,42 @@
     if(hashCache.has(row))return hashCache.get(row);
     const h=originalRowHash(row);hashCache.set(row,h);return h;
   };
+  const cachedRowKey=row=>{
+    if(!row||typeof row!=='object')return originalRowKey(row);
+    if(keyCache.has(row))return keyCache.get(row);
+    const k=originalRowKey(row);keyCache.set(row,k);return k;
+  };
+  const resetPending=()=>{pendingRowsRef=null;pendingLen=-1;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1};
 
   const ensureLocal=()=>{
     const src=Array.isArray(rows)?rows:[];
-    if(src===localRowsRef&&src.length===localLen&&localHashes&&localEntries)return;
-    localRowsRef=src;localLen=src.length;localHashes=new Set();localEntries=new Array(src.length);
+    if(src===localRowsRef&&src.length===localLen&&localHashes&&localEntries&&hashBuckets)return;
+    localRowsRef=src;localLen=src.length;localHashes=new Set();localEntries=new Array(src.length);hashBuckets=new Map();
     for(let i=0;i<src.length;i++){
       const r=src[i],h=cachedRowHash(r);localHashes.add(h);localEntries[i]=[r,h];
+      const bucket=hashBuckets.get(h);if(bucket)bucket.push(r);else hashBuckets.set(h,[r]);
     }
-    pendingRowsRef=null;pendingRows=null;
+    resetPending();
   };
 
   rowHash=cachedRowHash;
+  rowKey=cachedRowKey;
+  mergeRows=incoming=>{
+    ensureLocal();let added=0,dup=0;
+    for(const r of incoming||[]){
+      const h=cachedRowHash(r),bucket=hashBuckets.get(h);let duplicate=false;
+      if(bucket?.length){
+        const k=cachedRowKey(r);
+        for(const existing of bucket){if(cachedRowKey(existing)===k){duplicate=true;break}}
+      }
+      if(duplicate){dup++;continue}
+      rows.push(r);added++;
+      localHashes.add(h);localEntries.push([r,h]);
+      if(bucket)bucket.push(r);else hashBuckets.set(h,[r]);
+    }
+    localRowsRef=rows;localLen=rows.length;resetPending();
+    return{added,dup};
+  };
   getUnsyncedRows=()=>{
     ensureLocal();
     const cloud=cloudHashes instanceof Set?cloudHashes:new Set();
@@ -39,8 +63,9 @@
 
   window.PanParagonHashCache={
     get:cachedRowHash,
-    invalidate:()=>{hashCache=new WeakMap();localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;pendingRowsRef=null;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1},
-    invalidatePending:()=>{pendingRowsRef=null;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1}
+    key:cachedRowKey,
+    invalidate:()=>{hashCache=new WeakMap();keyCache=new WeakMap();localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;hashBuckets=null;resetPending()},
+    invalidatePending:resetPending
   };
   document.addEventListener('panparagon:data-changed',()=>window.PanParagonHashCache.invalidate());
 })();
