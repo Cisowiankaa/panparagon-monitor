@@ -5,8 +5,10 @@ export default async function handler(req,res){
     const r=await fetch(`${proto}://${host}/index.html`,{headers:{'cache-control':'no-cache'}});
     if(!r.ok) return res.status(r.status).send(await r.text());
     let html=await r.text();
-    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/sync-retry.js?v=4"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=1"></script><script src="/store-year-detail.js?v=12"></script><script src="/store-stats.js?v=4"></script></body>');
+    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/sync-hash-cache.js?v=1"></script><script src="/sync-retry.js?v=4"></script><script src="/sync-filter.js?v=1"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=1"></script><script src="/store-year-detail.js?v=12"></script><script src="/store-stats.js?v=4"></script></body>');
     else {
+      if(!html.includes('/sync-hash-cache.js')) html=html.replace(/(<script src="\/sync-retry\.js\?v=\d+"><\/script>)/,'<script src="/sync-hash-cache.js?v=1"></script>$1');
+      else html=html.replace(/\/sync-hash-cache\.js\?v=\d+/g,'/sync-hash-cache.js?v=1');
       if(!html.includes('/sync-filter.js')) html=html.replace('</body>','<script src="/sync-filter.js?v=1"></script></body>');
       if(!html.includes('/store-date-cache.js')) html=html.replace(/(<script src="\/sync-filter\.js\?v=\d+"><\/script>)/,'$1<script src="/store-date-cache.js?v=1"></script>');
       else html=html.replace(/\/store-date-cache\.js\?v=\d+/g,'/store-date-cache.js?v=1');
