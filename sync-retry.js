@@ -27,10 +27,29 @@
   const labelFor=s=>({oczekuje:'oczekuje',wysyłanie:'wysyłanie…',zsynchronizowany:'zsynchronizowany ✓','błąd':'błąd'}[s]||s);
   const clsFor=s=>s==='zsynchronizowany'?'oktxt':s==='błąd'?'badtxt':'warntxt';
   const pendingRows=()=>{try{return rows.filter(r=>!cloudHashes.has(rowHash(r)))}catch{return[]}};
+  const fmtTime=t=>t?new Date(t).toLocaleString('pl-PL'):'—';
+
+  const ensureSidebarCounter=()=>{
+    if(document.getElementById('syncErrorMini'))return;
+    const anchor=document.getElementById('pendingMini');
+    if(!anchor)return;
+    const el=document.createElement('div');
+    el.id='syncErrorMini';el.className='small';el.style.marginTop='5px';el.textContent='Błędy synchronizacji: 0';
+    anchor.insertAdjacentElement('afterend',el);
+  };
+
   const refreshBadges=()=>{
     const q=load(),errors=Object.values(q).filter(x=>x.status==='błąd').length;
-    const el=document.getElementById('retryErrorCount');if(el)el.textContent=errors?`Błędy: ${errors}`:'Błędy: 0';
+    const el=document.getElementById('retryErrorCount');if(el){el.textContent=`Błędy: ${errors}`;el.className='pill'+(errors?' bad':' ok')}
+    const mini=document.getElementById('syncErrorMini');if(mini){mini.textContent=`Błędy synchronizacji: ${errors}`;mini.className='small '+(errors?'badtxt':'oktxt')}
   };
+
+  const errorDetails=(h,st)=>{
+    if(st.status!=='błąd')return '';
+    const msg=st.lastError||'Nieznany błąd synchronizacji';
+    return `<details style="grid-column:1/-1;margin-top:4px;padding:8px 10px;border:1px solid var(--l);border-radius:8px;background:#101821"><summary class="badtxt" style="cursor:pointer">Szczegóły błędu</summary><div class="small" style="margin-top:8px"><b>Rekord:</b> ${esc(h)}<br><b>Ostatni błąd:</b> ${esc(msg)}<br><b>Liczba prób:</b> ${st.attempts||0}<br><b>Ostatnia zmiana:</b> ${esc(fmtTime(st.updatedAt))}<br><b>Kolejna próba:</b> ${esc(fmtTime(st.nextRetry))}</div></details>`;
+  };
+
   const renderPanel=()=>{
     const panel=document.getElementById('unsyncedPanel');if(!panel)return;
     try{
@@ -41,16 +60,19 @@
       panel.innerHTML=`<div class="small" style="margin-bottom:8px">Oczekuje: <b>${pending.length}</b>. Pokazuję pierwsze ${shown.length}.</div>`+shown.map(r=>{
         const h=rowHash(r),st=get(h),d=rowDate(r),shop=(r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep';
         const retry=st.status==='błąd'&&st.nextRetry?`<div class="small">próba ${st.attempts} · ponów ${new Date(st.nextRetry).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>`:'';
-        return `<div class="pending-item"><span>${d?ml(mk(d)):'Bez daty'}</span><b>${esc(shop)}</b><span class="${clsFor(st.status)}">${labelFor(st.status)}${retry}</span></div>`
+        return `<div class="pending-item"><span>${d?ml(mk(d)):'Bez daty'}</span><b>${esc(shop)}</b><span class="${clsFor(st.status)}">${labelFor(st.status)}${retry}</span>${errorDetails(h,st)}</div>`
       }).join('');refreshBadges();
     }catch(e){panel.textContent='Nie udało się odświeżyć statusów: '+e.message}
   };
 
   const injectUI=()=>{
-    const retryMissing=document.getElementById('retryMissing');if(!retryMissing||document.getElementById('retryErrors'))return;
-    const btn=document.createElement('button');btn.id='retryErrors';btn.textContent='Ponów błędy';retryMissing.insertAdjacentElement('afterend',btn);
-    const counter=document.createElement('span');counter.id='retryErrorCount';counter.className='pill';counter.textContent='Błędy: 0';btn.insertAdjacentElement('afterend',counter);
-    btn.onclick=()=>retryFailed(true);
+    ensureSidebarCounter();
+    const retryMissing=document.getElementById('retryMissing');if(!retryMissing)return;
+    if(!document.getElementById('retryErrors')){
+      const btn=document.createElement('button');btn.id='retryErrors';btn.textContent='Ponów błędy';retryMissing.insertAdjacentElement('afterend',btn);
+      const counter=document.createElement('span');counter.id='retryErrorCount';counter.className='pill';counter.textContent='Błędy: 0';btn.insertAdjacentElement('afterend',counter);
+      btn.onclick=()=>retryFailed(true);
+    }
     refreshBadges();
   };
 
@@ -93,7 +115,7 @@
     renderPanel();refreshBadges();
   };
 
-  window.addEventListener('ppm-sync-state-change',renderPanel);
+  window.addEventListener('ppm-sync-state-change',()=>{renderPanel();refreshBadges()});
   window.addEventListener('ppm-sync-retry-tick',()=>retryFailed(false));
   window.addEventListener('online',()=>retryFailed(false));
   setInterval(()=>window.dispatchEvent(new CustomEvent('ppm-sync-retry-tick')),60000);
