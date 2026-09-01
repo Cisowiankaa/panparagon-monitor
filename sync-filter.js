@@ -1,5 +1,6 @@
 (()=>{
   let filter='all',query='',sortBy='date-desc',showAll=false;
+  const RETRY_KEY='ppm_sync_retry_queue';
   const getRetry=()=>window.PanParagonSyncRetry;
   const statusOf=r=>{try{return getRetry()?.get(rowHash(r))?.status||'oczekuje'}catch{return'oczekuje'}};
   const pendingAll=()=>{try{return rows.filter(r=>!cloudHashes.has(rowHash(r)))}catch{return[]}};
@@ -18,16 +19,36 @@
   });
   const rowsForFilter=()=>{let list=pendingAll();if(filter==='errors')list=list.filter(r=>statusOf(r)==='błąd');else if(filter==='pending')list=list.filter(r=>statusOf(r)!=='błąd');const q=query.trim().toLocaleLowerCase('pl-PL');if(q)list=list.filter(r=>searchableText(r).includes(q));return sortRows(list)};
 
+  const csvCell=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const exportCSV=()=>{
+    const retry=getRetry(),list=rowsForFilter();
+    if(!list.length){const m=document.getElementById('diagMsg');if(m)m.textContent='Eksport: brak rekordów w aktualnym widoku.';return}
+    const cols=['status','data','miesiąc','sklep','rekord','liczba_prób','ostatni_błąd','kolejna_próba'];
+    const lines=[cols.map(csvCell).join(';')];
+    list.forEach(r=>{const h=rowHash(r),st=retry?.get(h)||{},d=rowDate(r);lines.push([st.status||'oczekuje',d?d.toISOString().slice(0,10):'',d?ml(mk(d)):'',shopOf(r),h,st.attempts||0,st.lastError||'',st.nextRetry?new Date(st.nextRetry).toISOString():''].map(csvCell).join(';'))});
+    const blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`panparagon-${filter==='errors'?'bledy':filter==='pending'?'oczekujace':'niezsynchronizowane'}-${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  };
+  const clearResolved=()=>{
+    let q={};try{q=JSON.parse(localStorage.getItem(RETRY_KEY)||'{}')}catch{}
+    let removed=0;for(const [h,s] of Object.entries(q)){if(s?.status==='zsynchronizowany'){delete q[h];removed++}}
+    localStorage.setItem(RETRY_KEY,JSON.stringify(q));
+    window.dispatchEvent(new CustomEvent('ppm-sync-state-change'));
+    const m=document.getElementById('diagMsg');if(m)m.textContent=removed?`Wyczyszczono rozwiązane statusy: ${removed}.`:'Brak rozwiązanych statusów do wyczyszczenia.';
+    renderFiltered();
+  };
+
   const ensureFilterUI=()=>{
     const panel=document.getElementById('unsyncedPanel');if(!panel)return;
     let wrap=document.getElementById('syncFilterWrap');
     if(!wrap){
       wrap=document.createElement('div');wrap.id='syncFilterWrap';wrap.style.margin='10px 0';
-      wrap.innerHTML='<div id="syncFilterBar" class="actions"><button data-sync-filter="all">Wszystkie <span data-count="all"></span></button><button data-sync-filter="pending">Oczekujące <span data-count="pending"></span></button><button data-sync-filter="errors">Błędy <span data-count="errors"></span></button></div><div class="actions" style="margin-top:8px"><input id="syncSearch" type="search" placeholder="Szukaj sklepu lub miesiąca…" style="flex:1;min-width:220px"><select id="syncSort"><option value="date-desc">Data: najnowsze</option><option value="date-asc">Data: najstarsze</option><option value="shop-asc">Sklep A–Z</option><option value="shop-desc">Sklep Z–A</option><option value="status">Status</option></select></div>';
+      wrap.innerHTML='<div id="syncFilterBar" class="actions"><button data-sync-filter="all">Wszystkie <span data-count="all"></span></button><button data-sync-filter="pending">Oczekujące <span data-count="pending"></span></button><button data-sync-filter="errors">Błędy <span data-count="errors"></span></button></div><div class="actions" style="margin-top:8px"><input id="syncSearch" type="search" placeholder="Szukaj sklepu lub miesiąca…" style="flex:1;min-width:220px"><select id="syncSort"><option value="date-desc">Data: najnowsze</option><option value="date-asc">Data: najstarsze</option><option value="shop-asc">Sklep A–Z</option><option value="shop-desc">Sklep Z–A</option><option value="status">Status</option></select></div><div class="actions" style="margin-top:8px"><button id="exportSyncCsv">Eksportuj widok CSV</button><button id="clearResolvedSync">Wyczyść rozwiązane błędy</button></div>';
       panel.insertAdjacentElement('beforebegin',wrap);
       wrap.querySelectorAll('[data-sync-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.syncFilter;showAll=false;paintFilter();renderFiltered()});
       const s=wrap.querySelector('#syncSearch');s.oninput=()=>{query=s.value;showAll=false;renderFiltered()};
       const so=wrap.querySelector('#syncSort');so.value=sortBy;so.onchange=()=>{sortBy=so.value;renderFiltered()};
+      wrap.querySelector('#exportSyncCsv').onclick=exportCSV;
+      wrap.querySelector('#clearResolvedSync').onclick=clearResolved;
     }
     paintFilter();updateCounts();
   };
