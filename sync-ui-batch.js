@@ -1,7 +1,9 @@
 (()=>{
   let depth=0,dirtyCounters=false,dirtyPanel=false;
-  let baseCounters=null,basePanel=null,basePush=null;
+  let baseCounters=null,basePanel=null,basePush=null,baseAuto=null;
   const batching=()=>depth>0;
+  const begin=()=>{depth++};
+  const end=()=>{depth=Math.max(0,depth-1);flush()};
   const flush=()=>{
     if(depth>0)return;
     if(dirtyCounters&&baseCounters){dirtyCounters=false;dirtyPanel=false;baseCounters();return}
@@ -20,15 +22,24 @@
       if(typeof cloudPush==='function'&&!basePush){
         basePush=cloudPush;
         cloudPush=async function(...args){
-          depth++;
+          begin();
           try{return await basePush(...args)}
-          finally{depth=Math.max(0,depth-1);flush()}
+          finally{end()}
+        };
+      }
+      if(typeof autoSync==='function'&&!baseAuto){
+        baseAuto=autoSync;
+        autoSync=async function(...args){
+          begin();
+          try{return await baseAuto(...args)}
+          finally{end()}
         };
       }
     }catch(e){console.warn('Sync UI batch fallback',e)}
   };
   window.PanParagonSyncBatch={
     isBatching:batching,
+    depth:()=>depth,
     markPanel:()=>{dirtyPanel=true},
     markCounters:()=>{dirtyCounters=true},
     flush
