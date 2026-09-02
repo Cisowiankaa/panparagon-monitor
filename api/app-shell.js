@@ -7,7 +7,7 @@ export default async function handler(req,res){
     if(!r.ok)return res.status(r.status).send(await r.text());
     let html=await r.text();
     const oldStartup="(async()=>{await initStorage();await consumeAuthHash();await refreshUser();$('webhook').value=webhook();$('deviceName').value=deviceName();showLastSync();if(user&&navigator.onLine)await autoSync('przy uruchomieniu');if(headers.length){guess();render(false)}else updateMode();if(user){await loadHistory();await runDiagnostics(true)}else updateSyncCounters()})();";
-    const newStartup="(async()=>{await initStorage();if(headers.length)guess();await window.PanParagonOwners?.migrateExisting?.();$('webhook').value=webhook();$('deviceName').value=deviceName();showLastSync();if(headers.length)render(false);else updateMode();await new Promise(resolve=>requestAnimationFrame(resolve));await consumeAuthHash();await refreshUser();if(user&&navigator.onLine){autoSync('przy uruchomieniu').catch(()=>{})}else updateSyncCounters()})();";
+    const newStartup="(async()=>{await initStorage();if(headers.length)guess();$('webhook').value=webhook();$('deviceName').value=deviceName();showLastSync();if(headers.length)render(false);else updateMode();await new Promise(resolve=>requestAnimationFrame(resolve));await consumeAuthHash();await refreshUser();if(user&&navigator.onLine){autoSync('przy uruchomieniu').catch(()=>{})}else updateSyncCounters()})();";
     if(html.includes(oldStartup))html=html.replace(oldStartup,newStartup);
 
     const managed=[
