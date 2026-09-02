@@ -19,13 +19,33 @@
     return owner;
   };
   const classifyRows=(list,chosen)=>{const c={ja:0,mama:0};for(const r of list||[])c[classifyRow(r,chosen)]++;return c};
+  const mergeRowsWithOwner=incoming=>{
+    const existing=new Map();
+    for(const r of Array.isArray(rows)?rows:[]){try{existing.set(rowKey(r),r)}catch{}}
+    let added=0,dup=0,ownerUpdated=0;const ownerChangedRows=[];
+    for(const r of incoming||[]){
+      let key='';try{key=rowKey(r)}catch{continue}
+      const old=existing.get(key);
+      if(old){
+        dup++;
+        const nextOwner=getOwner(r),nextSource=String(r?.[SOURCE_KEY]||'');
+        if(old[OWNER_KEY]!==nextOwner||String(old[SOURCE_KEY]||'')!==nextSource){
+          old[OWNER_KEY]=nextOwner;old[SOURCE_KEY]=nextSource;ownerUpdated++;ownerChangedRows.push(old);
+        }
+        continue;
+      }
+      existing.set(key,r);rows.push(r);added++;
+    }
+    if(ownerUpdated){window.PanParagonHashCache?.invalidate?.();window.PanParagonDateCache?.invalidate?.();window.PanParagonMainIndex?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-duplicate-reassign',changed:ownerUpdated}}))}
+    return{added,dup,ownerUpdated,ownerChangedRows};
+  };
   const syncOwnerSelects=value=>{const v=normalizeOwner(value);localStorage.setItem('ppm_import_owner',v);for(const id of ['importOwner','importOwnerQuick']){const el=document.getElementById(id);if(el&&el.value!==v)el.value=v}};
   const makeSelect=id=>{const s=document.createElement('select');s.id=id;s.title='Właściciel paragonów od 1 września 2026';s.innerHTML='<option value="ja">Moje CSV</option><option value="mama">CSV Mamy</option>';s.value=selectedOwner();s.addEventListener('change',()=>syncOwnerSelects(s.value));return s};
   const ensureUI=()=>{
     const dashFile=document.getElementById('file')?.closest('label.file'),dashActions=dashFile?.parentElement;
     if(dashActions&&!document.getElementById('importOwnerQuick')){const wrap=document.createElement('div');wrap.className='actions';wrap.style.alignItems='center';const label=document.createElement('span');label.className='small';label.textContent='CSV:';wrap.append(label,makeSelect('importOwnerQuick'));dashActions.insertBefore(wrap,dashFile)}
     const importFileEl=document.getElementById('file2')?.closest('label.file'),importActions=importFileEl?.parentElement;
-    if(importActions&&!document.getElementById('importOwner')){const label=document.createElement('span');label.className='small';label.textContent='Właściciel od 1 września:';importActions.insertBefore(label,importFileEl);importActions.insertBefore(makeSelect('importOwner'),importFileEl);const note=document.createElement('div');note.id='ownerImportNote';note.className='notice';note.textContent='Obecne dane są przypisane do Ciebie. Przy kolejnych importach wybierz Moje CSV albo CSV Mamy; rekordy sprzed 1 września są automatycznie przypisywane Mamie.';document.getElementById('fn')?.insertAdjacentElement('afterend',note)}
+    if(importActions&&!document.getElementById('importOwner')){const label=document.createElement('span');label.className='small';label.textContent='Właściciel od 1 września:';importActions.insertBefore(label,importFileEl);importActions.insertBefore(makeSelect('importOwner'),importFileEl);const note=document.createElement('div');note.id='ownerImportNote';note.className='notice';note.textContent='Obecne dane są przypisane do Ciebie. Przy kolejnych importach wybierz Moje CSV albo CSV Mamy; rekordy sprzed 1 września są automatycznie przypisywane Mamie. Ponowny import tego samego CSV zmienia właściciela bez tworzenia duplikatów.';document.getElementById('fn')?.insertAdjacentElement('afterend',note)}
     syncOwnerSelects(selectedOwner());
   };
   const countsForMonth=month=>{const out={ja:0,mama:0};for(const r of Array.isArray(rows)?rows:[]){let d=null;try{d=typeof rowDate==='function'?rowDate(r):null}catch{}if(month&&(!d||typeof mk!=='function'||mk(d)!==month))continue;out[getOwner(r)]++}return out};
@@ -40,30 +60,32 @@
     if(!Array.isArray(rows)||!rows.length)return{changed:0,ja:0,mama:0};
     const force=localStorage.getItem(MIGRATION_KEY)!=='done';let changed=0;
     if(force){for(const r of rows){if(!r||typeof r!=='object')continue;if(r[OWNER_KEY]!=='ja'){r[OWNER_KEY]='ja';changed++}if(r[SOURCE_KEY]!=='existing-all-ja-v8'){r[SOURCE_KEY]='existing-all-ja-v8';changed++}}localStorage.setItem(MIGRATION_KEY,'done');localStorage.removeItem(CLOUD_MIGRATION_KEY)}
-    if(changed){window.PanParagonHashCache?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v8',changed}}));try{if(db&&typeof persistRows==='function')await persistRows()}catch{}}
+    if(changed){window.PanParagonHashCache?.invalidate?.();window.PanParagonDateCache?.invalidate?.();window.PanParagonMainIndex?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v8',changed}}));try{if(db&&typeof persistRows==='function')await persistRows()}catch{}}
     scheduleViews();return{changed,ja:rows.length,mama:0};
+  };
+  const cloudUpsertOwnerRows=async list=>{
+    if(!navigator.onLine||!Array.isArray(list)||!list.length||!user)return false;
+    const session=typeof getSession==='function'?getSession():null;
+    if(!session?.access_token||typeof authHeaders!=='function'||typeof rowHash!=='function')return false;
+    const now=new Date().toISOString(),batchSize=300;
+    for(let i=0;i<list.length;i+=batchSize){
+      const items=list.slice(i,i+batchSize).map(r=>({user_id:user.id,row_hash:rowHash(r),data:r,updated_at:now}));
+      const response=await fetch(SUPABASE_URL+'/rest/v1/panparagon_receipts?on_conflict=user_id,row_hash',{method:'POST',headers:{...authHeaders(session.access_token),Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(items)});
+      if(!response.ok)throw new Error('Synchronizacja właściciela '+response.status);
+    }
+    return true;
   };
   const syncExistingOwnersToCloud=async()=>{
     if(cloudOwnerSyncing||localStorage.getItem(CLOUD_MIGRATION_KEY)==='done'||!navigator.onLine||!Array.isArray(rows)||!rows.length||!user)return false;
-    const session=typeof getSession==='function'?getSession():null;
-    if(!session?.access_token||typeof authHeaders!=='function'||typeof rowHash!=='function')return false;
     cloudOwnerSyncing=true;
-    try{
-      const now=new Date().toISOString(),batchSize=300;
-      for(let i=0;i<rows.length;i+=batchSize){
-        const items=rows.slice(i,i+batchSize).map(r=>({user_id:user.id,row_hash:rowHash(r),data:r,updated_at:now}));
-        const response=await fetch(SUPABASE_URL+'/rest/v1/panparagon_receipts?on_conflict=user_id,row_hash',{method:'POST',headers:{...authHeaders(session.access_token),Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(items)});
-        if(!response.ok)throw new Error('Synchronizacja właściciela '+response.status);
-      }
-      localStorage.setItem(CLOUD_MIGRATION_KEY,'done');
-      if(typeof fetchCloudHashes==='function')try{await fetchCloudHashes()}catch{}
-      return true;
-    }catch(e){console.warn('Owner cloud sync fallback',e);return false}
+    try{await cloudUpsertOwnerRows(rows);localStorage.setItem(CLOUD_MIGRATION_KEY,'done');if(typeof fetchCloudHashes==='function')try{await fetchCloudHashes()}catch{}return true}
+    catch(e){console.warn('Owner cloud sync fallback',e);return false}
     finally{cloudOwnerSyncing=false}
   };
+  const syncChangedOwnersToCloud=async list=>{if(!Array.isArray(list)||!list.length||!user)return false;try{await cloudUpsertOwnerRows(list);return true}catch(e){console.warn('Owner duplicate cloud sync fallback',e);return false}};
   const migrateWhenStorageReady=()=>{let tries=0;const tick=async()=>{tries++;if((!Array.isArray(rows)||!rows.length)&&tries<100){setTimeout(tick,50);return}if(!Array.isArray(rows)||!rows.length)return;if(headers?.length&&typeof guess==='function')guess();const r=await migrateExisting();if(r.changed&&typeof render==='function')render(false);scheduleViews();if(user)syncExistingOwnersToCloud().catch(()=>{})};setTimeout(tick,0)};
-  importFile=function(file){if(!file)return;const chosen=selectedOwner(),reader=new FileReader();reader.onload=async()=>{try{const p=parseCSV(reader.result),union=[...headers];p.h.forEach(h=>{if(!union.includes(h))union.push(h)});headers=union.length?union:p.h;if(typeof guess==='function')guess();const counts=classifyRows(p.rs,chosen),x=mergeRows(p.rs);if(typeof render==='function')render(false);scheduleViews();try{await persistRows();const fn=document.getElementById('fn');if(fn)fn.textContent=`${file.name} — dodano ${x.added}, duplikaty: ${x.dup}. W pliku: ${counts.ja} moje, ${counts.mama} Mamy. ZAPISANO trwale. Łącznie: ${rows.length}`;if(typeof updateUnsyncedPanel==='function')updateUnsyncedPanel();if(typeof autoSync==='function')await autoSync('po imporcie CSV');scheduleViews()}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent=`Błąd trwałego zapisu: ${e.message}`}}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent='Błąd importu CSV: '+(e?.message||String(e))}};reader.readAsText(file,'utf-8')};
-  window.PanParagonOwners={key:OWNER_KEY,sourceKey:SOURCE_KEY,cutoff:'2026-09-01',get:getOwner,label:r=>ownerLabel(getOwner(r)),selectedOwner,classifyRows,countsForMonth,migrateExisting,syncExistingOwnersToCloud,ensureUI,refreshViews};
+  importFile=function(file){if(!file)return;const chosen=selectedOwner(),reader=new FileReader();reader.onload=async()=>{try{const p=parseCSV(reader.result),union=[...headers];p.h.forEach(h=>{if(!union.includes(h))union.push(h)});headers=union.length?union:p.h;if(typeof guess==='function')guess();const counts=classifyRows(p.rs,chosen),x=mergeRowsWithOwner(p.rs);if(typeof render==='function')render(false);scheduleViews();try{await persistRows();const fn=document.getElementById('fn');if(fn)fn.textContent=`${file.name} — dodano ${x.added}, duplikaty: ${x.dup}${x.ownerUpdated?`, zmieniono właściciela: ${x.ownerUpdated}`:''}. W pliku: ${counts.ja} moje, ${counts.mama} Mamy. ZAPISANO trwale. Łącznie: ${rows.length}`;if(typeof updateUnsyncedPanel==='function')updateUnsyncedPanel();if(typeof autoSync==='function')await autoSync('po imporcie CSV');if(x.ownerChangedRows.length&&user)await syncChangedOwnersToCloud(x.ownerChangedRows);scheduleViews()}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent=`Błąd trwałego zapisu: ${e.message}`}}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent='Błąd importu CSV: '+(e?.message||String(e))}};reader.readAsText(file,'utf-8')};
+  window.PanParagonOwners={key:OWNER_KEY,sourceKey:SOURCE_KEY,cutoff:'2026-09-01',get:getOwner,label:r=>ownerLabel(getOwner(r)),selectedOwner,classifyRows,countsForMonth,migrateExisting,syncExistingOwnersToCloud,syncChangedOwnersToCloud,ensureUI,refreshViews};
   const install=()=>{ensureUI();document.getElementById('month')?.addEventListener('change',scheduleViews);document.addEventListener('panparagon:data-changed',scheduleViews);const baseRender=typeof render==='function'?render:null;if(baseRender){render=function(...args){const out=baseRender.apply(this,args);scheduleViews();return out}}const baseAuto=typeof autoSync==='function'?autoSync:null;if(baseAuto){autoSync=async function(...args){const out=await baseAuto.apply(this,args);if(user)await syncExistingOwnersToCloud();return out}}scheduleViews();migrateWhenStorageReady()};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
