@@ -23,6 +23,12 @@
 
   let ownerIndexDirty=true,ownerIndexSize=-1,ownerIndexDateCol='',ownerIndex={all:{ja:0,mama:0},months:new Map()};
   const invalidateOwnerIndex=()=>{ownerIndexDirty=true};
+  const sharedOwnerIndex=()=>{
+    try{
+      const shared=window.PanParagonMainIndex?.get?.()?.owners;
+      return shared?.all&&shared?.months instanceof Map?shared:null;
+    }catch{return null}
+  };
   const rebuildOwnerIndex=()=>{
     const all={ja:0,mama:0},months=new Map();
     for(const r of Array.isArray(rows)?rows:[]){
@@ -36,6 +42,7 @@
     return ownerIndex;
   };
   const getOwnerIndex=()=>{
+    const shared=sharedOwnerIndex();if(shared)return shared;
     const size=Array.isArray(rows)?rows.length:0,dc=String(typeof dateCol!=='undefined'?dateCol:'');
     return ownerIndexDirty||size!==ownerIndexSize||dc!==ownerIndexDateCol?rebuildOwnerIndex():ownerIndex;
   };
