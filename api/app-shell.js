@@ -19,7 +19,7 @@ export default async function handler(req,res){
       ['store-date-cache.js',2],
       ['main-render-fast.js',4],
       ['owner-import.js',12],
-      ['owner-backup-restore.js',1],
+      ['owner-backup-restore.js',2],
       ['sync-fetch-reuse.js',6],
       ['owner-view-stabilize.js',2],
       ['sync-history-cache.js',1],
