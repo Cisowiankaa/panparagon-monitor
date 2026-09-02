@@ -17,7 +17,7 @@ export default async function handler(req,res){
       ['sync-ui-batch.js',3],
       ['sync-filter.js',1],
       ['store-date-cache.js',2],
-      ['main-render-fast.js',3],
+      ['main-render-fast.js',4],
       ['owner-import.js',8],
       ['sync-fetch-reuse.js',6],
       ['sync-history-cache.js',1],
