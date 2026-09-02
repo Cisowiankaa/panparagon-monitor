@@ -6,15 +6,19 @@
   let pendingRowsRef=null,pendingLen=-1,pendingCloudRef=null,pendingCloudSize=-1,pendingRows=null;
   let cloudOnlyRowsRef=null,cloudOnlyLen=-1,cloudOnlyCloudRef=null,cloudOnlyCloudSize=-1,cloudOnlyValue=null;
 
-  const cachedRowHash=row=>{
-    if(!row||typeof row!=='object')return originalRowHash(row);
-    if(hashCache.has(row))return hashCache.get(row);
-    const h=originalRowHash(row);hashCache.set(row,h);return h;
-  };
+  const isInternalKey=k=>String(k).startsWith('__ppm_');
+  const canonicalRowKey=row=>JSON.stringify(Object.keys(row).filter(k=>!isInternalKey(k)).sort().reduce((o,k)=>(o[k]=String(row[k]??'').trim(),o),{}));
   const cachedRowKey=row=>{
     if(!row||typeof row!=='object')return originalRowKey(row);
     if(keyCache.has(row))return keyCache.get(row);
-    const k=originalRowKey(row);keyCache.set(row,k);return k;
+    const k=canonicalRowKey(row);keyCache.set(row,k);return k;
+  };
+  const cachedRowHash=row=>{
+    if(!row||typeof row!=='object')return originalRowHash(row);
+    if(hashCache.has(row))return hashCache.get(row);
+    const key=cachedRowKey(row);
+    const h=typeof fastHash==='function'?fastHash(key):originalRowHash(Object.keys(row).filter(k=>!isInternalKey(k)).reduce((o,k)=>(o[k]=row[k],o),{}));
+    hashCache.set(row,h);return h;
   };
   const resetCloudDerived=()=>{
     pendingRowsRef=null;pendingLen=-1;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1;
@@ -70,6 +74,7 @@
   window.PanParagonHashCache={
     get:cachedRowHash,
     key:cachedRowKey,
+    isInternalKey,
     invalidate:()=>{hashCache=new WeakMap();keyCache=new WeakMap();invalidateAggregates()},
     invalidateAggregates,
     invalidatePending:resetCloudDerived
