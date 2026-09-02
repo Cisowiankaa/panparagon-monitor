@@ -7,7 +7,9 @@
   const baseLogSync=typeof logSync==='function'?logSync:null;
   const baseMergeRows=typeof mergeRows==='function'?mergeRows:null;
   const baseRender=typeof render==='function'?render:null;
-  let autoDepth=0,freshHashReads=0,autoAdded=0,autoUserChecked=false,autoUserValue=null;
+  const baseCloudPush=typeof cloudPush==='function'?cloudPush:null;
+  const baseLoadHistory=typeof loadHistory==='function'?loadHistory:null;
+  let autoDepth=0,freshHashReads=0,autoAdded=0,autoUserChecked=false,autoUserValue=null,insideCloudPush=0;
 
   fetchCloudRows=async function(...args){
     const out=await baseFetchRows(...args);
@@ -54,13 +56,29 @@
     };
   }
 
+  if(baseCloudPush){
+    cloudPush=async function(...args){
+      const inAuto=autoDepth>0;
+      if(inAuto)insideCloudPush++;
+      try{return await baseCloudPush(...args)}
+      finally{if(inAuto)insideCloudPush=Math.max(0,insideCloudPush-1)}
+    };
+  }
+
+  if(baseLoadHistory){
+    loadHistory=async function(...args){
+      if(autoDepth>0&&insideCloudPush>0)return;
+      return baseLoadHistory(...args);
+    };
+  }
+
   autoSync=async function(...args){
     autoDepth++;
-    if(autoDepth===1){freshHashReads=0;autoAdded=0;autoUserChecked=false;autoUserValue=null}
+    if(autoDepth===1){freshHashReads=0;autoAdded=0;autoUserChecked=false;autoUserValue=null;insideCloudPush=0}
     try{return await baseAutoSync(...args)}
     finally{
       autoDepth=Math.max(0,autoDepth-1);
-      if(autoDepth===0){freshHashReads=0;autoAdded=0;autoUserChecked=false;autoUserValue=null}
+      if(autoDepth===0){freshHashReads=0;autoAdded=0;autoUserChecked=false;autoUserValue=null;insideCloudPush=0}
     }
   };
 
@@ -69,6 +87,7 @@
     hasFreshCloudRows:()=>freshHashReads>0,
     remainingFreshHashReads:()=>freshHashReads,
     hasCachedUser:()=>autoDepth>0&&autoUserChecked,
+    isInsideCloudPush:()=>insideCloudPush>0,
     autoAdded:()=>autoAdded
   };
 })();
