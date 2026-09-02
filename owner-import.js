@@ -2,8 +2,9 @@
   if(typeof importFile!=='function'||typeof parseCSV!=='function'||typeof mergeRows!=='function')return;
   const OWNER_KEY='__ppm_owner';
   const SOURCE_KEY='__ppm_owner_source';
-  const MIGRATION_KEY='ppm_owner_migration_v4';
+  const MIGRATION_KEY='ppm_owner_migration_v5_sep_to_ja';
   const CUTOFF=new Date(2026,8,1);
+  const OCTOBER=new Date(2026,9,1);
   const validOwner=v=>v==='mama'||v==='ja';
   const normalizeOwner=v=>v==='mama'?'mama':'ja';
   const selectedOwner=()=>normalizeOwner(document.getElementById('importOwner')?.value||document.getElementById('importOwnerQuick')?.value||localStorage.getItem('ppm_import_owner')||'ja');
@@ -32,31 +33,36 @@
   const ensureMonthSummary=()=>{const month=document.getElementById('month');if(!month)return null;let el=document.getElementById('ownerMonthSummary');if(!el){el=document.createElement('span');el.id='ownerMonthSummary';el.className='pill';month.insertAdjacentElement('afterend',el)}return el};
   const updateMonthSummary=()=>{const el=ensureMonthSummary(),month=document.getElementById('month')?.value||'';if(!el)return;const c=countsForMonth(month);el.textContent=(month&&typeof ml==='function'?`${ml(month)} · `:'Wszystkie · ')+countsText(c);el.title='Podział paragonów według właściciela CSV'};
   let annotating=false,scheduled=false;
-  const annotateMonthsTable=()=>{const table=document.querySelector('#monthsTable table');if(!table)return;const head=table.querySelector('tr');if(head&&!head.querySelector('[data-owner-head]')){const th=document.createElement('th');th.dataset.ownerHead='1';th.textContent='Właściciel';head.appendChild(th)}let year='';for(const tr of [...table.querySelectorAll('tr')].slice(1)){const cells=tr.querySelectorAll('td');if(!cells.length)continue;if(cells.length===1&&cells[0].hasAttribute('colspan')){year=(cells[0].textContent||'').trim();cells[0].colSpan=3;continue}if(tr.querySelector('[data-owner-cell]'))continue;const name=(cells[0]?.textContent||'').trim();if(name==='Nie rozpoznano daty'){const td=document.createElement('td');td.dataset.ownerCell='1';td.textContent='—';tr.appendChild(td);continue}let key='';if(year&&typeof monthName==='function'){for(let m=1;m<=12;m++){const candidate=`${year}-${String(m).padStart(2,'0')}`;if(monthName(candidate)===name){key=candidate;break}}}const td=document.createElement('td');td.dataset.ownerCell='1';td.className='small';td.textContent=key?countsText(countsForMonth(key)):'—';tr.appendChild(td)}};
+  const annotateMonthsTable=()=>{const table=document.querySelector('#monthsTable table');if(!table)return;const head=table.querySelector('tr');if(head&&!head.querySelector('[data-owner-head]')){const th=document.createElement('th');th.dataset.ownerHead='1';th.textContent='Właściciel';head.appendChild(th)}let year='';for(const tr of [...table.querySelectorAll('tr')].slice(1)){const cells=tr.querySelectorAll('td');if(!cells.length)continue;if(cells.length===1&&cells[0].hasAttribute('colspan')){year=(cells[0].textContent||'').trim();cells[0].colSpan=3;continue}const name=(cells[0]?.textContent||'').trim();let td=tr.querySelector('[data-owner-cell]');if(!td){td=document.createElement('td');td.dataset.ownerCell='1';td.className='small';tr.appendChild(td)}if(name==='Nie rozpoznano daty'){td.textContent='—';continue}let key='';if(year&&typeof monthName==='function'){for(let m=1;m<=12;m++){const candidate=`${year}-${String(m).padStart(2,'0')}`;if(monthName(candidate)===name){key=candidate;break}}}td.textContent=key?countsText(countsForMonth(key)):'—'}};
   const annotateHistory=()=>{const hist=document.getElementById('hist');if(!hist)return;let year='';for(const node of [...hist.children]){if(node.classList?.contains('year-head')){year=(node.textContent||'').trim();continue}const old=node.querySelector?.('[data-owner-breakdown]');if(old)old.remove();const name=(node.querySelector?.('span')?.textContent||'').trim();if(!name||!year)continue;let key='';for(let m=1;m<=12;m++){const candidate=`${year}-${String(m).padStart(2,'0')}`;if(typeof monthName==='function'&&monthName(candidate)===name){key=candidate;break}}if(!key)continue;const info=document.createElement('div');info.dataset.ownerBreakdown='1';info.className='small';info.style.marginTop='4px';info.textContent=countsText(countsForMonth(key));node.appendChild(info)}};
   const annotateOwnerViews=()=>{if(annotating)return;annotating=true;try{updateMonthSummary();annotateMonthsTable();annotateHistory()}finally{annotating=false}};
   const scheduleAnnotate=()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;annotateOwnerViews()})};
   const migrateExisting=async()=>{
     if(!Array.isArray(rows)||!rows.length)return{changed:0,ja:0,mama:0};
     const forceRepair=localStorage.getItem(MIGRATION_KEY)!=='done';
-    let changed=0;const counts={ja:0,mama:0};
+    let changed=0,forcedSeptember=0;const counts={ja:0,mama:0};
     for(const r of rows){
       let owner=r?.[OWNER_KEY],source=String(r?.[SOURCE_KEY]||''),d=null;
       try{d=typeof rowDate==='function'?rowDate(r):null}catch{}
-      const explicit=source==='import-ja'||source==='import-mama';
-      if(forceRepair&&!explicit&&d){
+      const explicitMama=source==='import-mama';
+      const explicitJa=source==='import-ja';
+      if(forceRepair&&d&&d>=CUTOFF&&d<OCTOBER&&!explicitMama){
+        if(owner!=='ja'){r[OWNER_KEY]='ja';changed++;forcedSeptember++}
+        if(source!=='sep-repaired-v5'&&!explicitJa){r[SOURCE_KEY]='sep-repaired-v5';changed++}
+        owner='ja';source=String(r[SOURCE_KEY]||'');
+      }else if(forceRepair&&!explicitMama&&!explicitJa&&d){
         const repaired=d<CUTOFF?'mama':'ja';
         if(owner!==repaired){r[OWNER_KEY]=repaired;changed++}
-        if(source!=='date-repaired-v4'){r[SOURCE_KEY]='date-repaired-v4';changed++}
+        if(source!=='date-repaired-v5'){r[SOURCE_KEY]='date-repaired-v5';changed++}
         owner=repaired;
       }else if(!validOwner(owner)){
-        owner=d&&d<CUTOFF?'mama':'ja';r[OWNER_KEY]=owner;r[SOURCE_KEY]=d?'date-repaired-v4':'legacy-unknown';changed++;
+        owner=d&&d<CUTOFF?'mama':'ja';r[OWNER_KEY]=owner;r[SOURCE_KEY]=d?'date-repaired-v5':'legacy-unknown';changed++;
       }
       counts[owner]++;
     }
     if(forceRepair)localStorage.setItem(MIGRATION_KEY,'done');
-    if(changed){window.PanParagonHashCache?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v4',changed}}));try{if(db&&typeof persistRows==='function')await persistRows()}catch{}}
-    scheduleAnnotate();return{changed,...counts};
+    if(changed){window.PanParagonHashCache?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v5',changed,forcedSeptember}}));try{if(db&&typeof persistRows==='function')await persistRows()}catch{}}
+    scheduleAnnotate();return{changed,forcedSeptember,...counts};
   };
   importFile=function(file){if(!file)return;const chosen=selectedOwner(),reader=new FileReader();reader.onload=async()=>{try{const p=parseCSV(reader.result),union=[...headers];p.h.forEach(h=>{if(!union.includes(h))union.push(h)});headers=union.length?union:p.h;if(typeof guess==='function')guess();const counts=classifyRows(p.rs,chosen),x=mergeRows(p.rs);if(typeof render==='function')render(false);scheduleAnnotate();try{await persistRows();const fn=document.getElementById('fn');if(fn)fn.textContent=`${file.name} — dodano ${x.added}, duplikaty: ${x.dup}. W pliku: ${counts.ja} moje, ${counts.mama} Mamy. ZAPISANO trwale. Łącznie: ${rows.length}`;if(typeof updateUnsyncedPanel==='function')updateUnsyncedPanel();if(typeof autoSync==='function')await autoSync('po imporcie CSV');scheduleAnnotate()}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent=`Błąd trwałego zapisu: ${e.message}`}}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent='Błąd importu CSV: '+(e?.message||String(e))}};reader.readAsText(file,'utf-8')};
   window.PanParagonOwners={key:OWNER_KEY,sourceKey:SOURCE_KEY,cutoff:'2026-09-01',get:getOwner,label:r=>ownerLabel(getOwner(r)),selectedOwner,classifyRows,countsForMonth,migrateExisting,ensureUI,refreshViews:annotateOwnerViews};
