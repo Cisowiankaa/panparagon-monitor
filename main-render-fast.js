@@ -1,24 +1,28 @@
 (()=>{
   if(typeof window.render!=='function')return;
   const original=window.render,originalReport=typeof window.buildReport==='function'?window.buildReport:null;
+  const OWNER_KEY='__ppm_owner';
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
+  const ownerName=r=>r?.[OWNER_KEY]==='mama'?'mama':'ja';
   const dcache=()=>window.PanParagonDateCache;
   const getDate=r=>{const c=dcache();return c&&typeof c.get==='function'?c.get(r):rowDate(r)};
   let baseKey='',base=null,dataVersion=0,deferToken=0;
   const invalidate=()=>{dataVersion++;base=null;baseKey='';deferToken++};
   const makeKey=()=>`${Array.isArray(rows)?rows.length:0}|${String(dateCol||'')}|${String(storeCol||'')}|${dataVersion}`;
   const buildBase=()=>{
-    const months={},years={},allStores={},monthStores={};let undated=0;
+    const months={},years={},allStores={},monthStores={},ownerMonths=new Map(),ownerAll={ja:0,mama:0};let undated=0;
     for(const r of rows){
-      const d=getDate(r),k=mk(d),s=storeName(r);
+      const d=getDate(r),k=mk(d),s=storeName(r),owner=ownerName(r);
+      ownerAll[owner]++;
       allStores[s]=(allStores[s]||0)+1;
       if(k){
         months[k]=(months[k]||0)+1;
         const y=String(d.getFullYear());years[y]=(years[y]||0)+1;
         const bucket=monthStores[k]||(monthStores[k]={});bucket[s]=(bucket[s]||0)+1;
+        let owners=ownerMonths.get(k);if(!owners){owners={ja:0,mama:0};ownerMonths.set(k,owners)}owners[owner]++;
       }else undated++;
     }
-    return{months,years,allStores,monthStores,undated,me:Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])),yearEntries:Object.entries(years).sort((a,b)=>b[0].localeCompare(a[0])),ae:Object.entries(allStores).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'))};
+    return{months,years,allStores,monthStores,owners:{all:ownerAll,months:ownerMonths},undated,me:Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])),yearEntries:Object.entries(years).sort((a,b)=>b[0].localeCompare(a[0])),ae:Object.entries(allStores).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'))};
   };
   const ensureBase=()=>{const key=makeKey();if(!base||key!==baseKey){base=buildBase();baseKey=key}return base};
   const renderFilter=selected=>{
