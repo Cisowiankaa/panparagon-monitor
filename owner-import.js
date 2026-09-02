@@ -1,6 +1,7 @@
 (()=>{
   if(typeof importFile!=='function'||typeof parseCSV!=='function'||typeof mergeRows!=='function')return;
   const OWNER_KEY='__ppm_owner';
+  const SOURCE_KEY='__ppm_owner_source';
   const CUTOFF=new Date(2026,8,1);
   const validOwner=v=>v==='mama'||v==='ja';
   const normalizeOwner=v=>v==='mama'?'mama':'ja';
@@ -10,8 +11,9 @@
   const classifyRow=(r,chosen)=>{
     if(!r||typeof r!=='object')return 'ja';
     let d=null;try{d=typeof rowDate==='function'?rowDate(r):null}catch{}
-    const owner=d&&d<CUTOFF?'mama':normalizeOwner(chosen);
+    const beforeCutoff=!!(d&&d<CUTOFF),owner=beforeCutoff?'mama':normalizeOwner(chosen);
     r[OWNER_KEY]=owner;
+    r[SOURCE_KEY]=beforeCutoff?'cutoff-auto':`import-${owner}`;
     return owner;
   };
   const classifyRows=(list,chosen)=>{
@@ -112,8 +114,15 @@
     if(!Array.isArray(rows)||!rows.length)return{changed:0,ja:0,mama:0};
     let changed=0;const counts={ja:0,mama:0};
     for(const r of rows){
-      let owner=r?.[OWNER_KEY];
-      if(!validOwner(owner)){
+      let owner=r?.[OWNER_KEY],source=String(r?.[SOURCE_KEY]||'');
+      if(!source){
+        let d=null;try{d=typeof rowDate==='function'?rowDate(r):null}catch{}
+        const repaired=d?(d<CUTOFF?'mama':'ja'):(validOwner(owner)?owner:'ja');
+        if(owner!==repaired){r[OWNER_KEY]=repaired;changed++}
+        else if(!validOwner(owner)){r[OWNER_KEY]=repaired;changed++}
+        r[SOURCE_KEY]='legacy-repaired';changed++;
+        owner=repaired;
+      }else if(!validOwner(owner)){
         let d=null;try{d=typeof rowDate==='function'?rowDate(r):null}catch{}
         owner=d&&d<CUTOFF?'mama':'ja';r[OWNER_KEY]=owner;changed++;
       }
@@ -134,8 +143,9 @@
       try{
         const p=parseCSV(reader.result),union=[...headers];
         p.h.forEach(h=>{if(!union.includes(h))union.push(h)});headers=union.length?union:p.h;
+        if(typeof guess==='function')guess();
         const counts=classifyRows(p.rs,chosen),x=mergeRows(p.rs);
-        if(typeof guess==='function')guess();if(typeof render==='function')render(false);scheduleAnnotate();
+        if(typeof render==='function')render(false);scheduleAnnotate();
         try{
           await persistRows();
           const fn=document.getElementById('fn');
@@ -152,6 +162,7 @@
   };
   window.PanParagonOwners={
     key:OWNER_KEY,
+    sourceKey:SOURCE_KEY,
     cutoff:'2026-09-01',
     get:getOwner,
     label:r=>ownerLabel(getOwner(r)),
