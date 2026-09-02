@@ -4,8 +4,9 @@
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const dcache=()=>window.PanParagonDateCache;
   const getDate=r=>{const c=dcache();return c&&typeof c.get==='function'?c.get(r):rowDate(r)};
-  let baseKey='',base=null;
-  const makeKey=()=>`${Array.isArray(rows)?rows.length:0}|${String(dateCol||'')}|${String(storeCol||'')}`;
+  let baseKey='',base=null,dataVersion=0;
+  const invalidate=()=>{dataVersion++;base=null;baseKey=''};
+  const makeKey=()=>`${Array.isArray(rows)?rows.length:0}|${String(dateCol||'')}|${String(storeCol||'')}|${dataVersion}`;
   const buildBase=()=>{
     const months={},years={},allStores={},monthStores={};let undated=0;
     for(const r of rows){
@@ -40,10 +41,10 @@
     try{
       dateCol=$('dc').value||dateCol;storeCol=$('stc').value||storeCol;
       const selected=$('month').value,key=makeKey(),full=!base||key!==baseKey;
-      if(full){base=buildBase();baseKey=key;renderStatic(selected);document.dispatchEvent(new CustomEvent('panparagon:data-changed'))}
+      if(full){base=buildBase();baseKey=key;renderStatic(selected);document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'main-render-fast'}}))}
       renderFilter(selected&&base.months[selected]?selected:'');
       if(save&&db)persistRows().catch(()=>{});updateMode();updateSyncCounters();
-    }catch(e){console.warn('Fast render fallback',e);base=null;baseKey='';return original(save)}
+    }catch(e){console.warn('Fast render fallback',e);invalidate();return original(save)}
   };
   const fastReport=()=>{
     try{
@@ -53,5 +54,6 @@
       return{type:'panparagon_monthly_report',source:'PanParagon Monitor',period:sel||'all',report:text,receiptCount:count,stores:a.map(([store,count])=>({store,count})),sentAt:new Date().toISOString()};
     }catch(e){console.warn('Fast report fallback',e);return originalReport?originalReport():null}
   };
-  window.render=fastRender;window.buildReport=fastReport;window.PanParagonMainIndex={get:ensureBase};
+  document.addEventListener('panparagon:data-changed',e=>{if(e?.detail?.reason!=='main-render-fast')invalidate()});
+  window.render=fastRender;window.buildReport=fastReport;window.PanParagonMainIndex={get:ensureBase,invalidate,version:()=>dataVersion};
 })();
