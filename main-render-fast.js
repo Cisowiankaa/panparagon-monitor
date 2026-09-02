@@ -28,15 +28,15 @@
   const renderFilter=selected=>{
     const data=ensureBase(),stores=selected?(data.monthStores[selected]||{}):data.allStores;
     const count=selected?(data.months[selected]||0):rows.length;
-    const rank=Object.entries(stores).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
+    const rank=selected?Object.entries(stores).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl')):data.ae;
     $('rc').textContent=count;$('sc').textContent=rank.length;$('mc').textContent=data.me.length;$('top').textContent=rank[0]?.[0]||'—';$('topm').textContent=rank[0]?`${rank[0][1]} paragonów`:'Brak danych';
     $('rank').innerHTML=rank.length?`<table><tr><th>#</th><th>Sklep</th><th>Paragony</th></tr>${rank.map(([s,n],i)=>`<tr><td>${i+1}</td><td>${esc(s)}</td><td><b>${n}</b></td></tr>`).join('')}</table>`:'<div class="empty">Brak danych.</div>';
   };
   const renderStatic=selected=>{
     const data=ensureBase(),{months,years,undated,me,yearEntries,ae}=data;
     $('yearly').innerHTML=yearEntries.length?yearEntries.map(([y,n])=>{const prev=years[String(+y-1)];let delta='Brak danych za poprzedni rok';if(prev){const pct=(n-prev)/prev*100;delta=`${pct>=0?'+':''}${pct.toFixed(1)}% vs ${+y-1}`}return `<div class="year-card"><div class="lab">${y}</div><div class="year-value">${n}</div><div class="small">paragonów</div><div class="delta">${delta}</div></div>`}).join(''):'<div class="empty">Brak danych.</div>';
-    const max=Math.max(1,...me.map(x=>x[1]));let lastYear='';$('hist').className='months-scroll'+(me.length?'':' empty');$('hist').innerHTML=me.length?me.map(([k,n])=>{const y=k.slice(0,4),head=y!==lastYear?`<div class="year-head">${y}</div>`:'';lastYear=y;return `${head}<div style="margin:12px 0"><div style="display:flex;justify-content:space-between"><span>${monthName(k)}</span><b>${n}</b></div><div class="bar"><i style="width:${Math.max(5,n/max*100)}%"></i></div></div>`}).join(''):'Brak danych.';
-    let rh='',ty='';for(const[k,n]of me){const y=k.slice(0,4);if(y!==ty){rh+=`<tr><td colspan="2" style="font-size:17px;font-weight:800;padding-top:18px">${y}</td></tr>`;ty=y}rh+=`<tr><td>${monthName(k)}</td><td><b>${n}</b></td></tr>`}if(undated)rh+=`<tr><td>Nie rozpoznano daty</td><td><b>${undated}</b></td></tr>`;
+    const max=Math.max(1,...me.map(x=>x[1]));let lastYear='';$('hist').className='months-scroll'+(me.length?'':' empty');$('hist').innerHTML=me.length?me.map(([k,n])=>{const y=k.slice(0,4),head=y!==lastYear?`<div class="year-head">${y}</div>`:'';lastYear=y;return `${head}<div data-month-key="${k}" style="margin:12px 0"><div style="display:flex;justify-content:space-between"><span>${monthName(k)}</span><b>${n}</b></div><div class="bar"><i style="width:${Math.max(5,n/max*100)}%"></i></div></div>`}).join(''):'Brak danych.';
+    let rh='',ty='';for(const[k,n]of me){const y=k.slice(0,4);if(y!==ty){rh+=`<tr><td colspan="2" style="font-size:17px;font-weight:800;padding-top:18px">${y}</td></tr>`;ty=y}rh+=`<tr data-month-key="${k}"><td>${monthName(k)}</td><td><b>${n}</b></td></tr>`}if(undated)rh+=`<tr><td>Nie rozpoznano daty</td><td><b>${undated}</b></td></tr>`;
     $('monthsTable').innerHTML=me.length||undated?`<table><tr><th>Miesiąc</th><th>Paragony</th></tr>${rh}</table>`:'<div class="empty">Brak danych.</div>';
     $('storesTable').innerHTML=ae.length?`<table><tr><th>#</th><th>Sklep</th><th>Paragony</th></tr>${ae.map(([s,n],i)=>`<tr><td>${i+1}</td><td>${esc(s)}</td><td><b>${n}</b></td></tr>`).join('')}</table>`:'<div class="empty">Brak danych.</div>';
     const byYear={};for(const[k]of me){const y=k.slice(0,4);(byYear[y]??=[]).push(k)}$('month').innerHTML='<option value="">Wszystkie miesiące</option>'+Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).map(y=>`<optgroup label="${y}">${byYear[y].map(k=>`<option value="${k}">${monthName(k)}</option>`).join('')}</optgroup>`).join('');$('month').value=selected&&months[selected]?selected:'';
@@ -54,7 +54,7 @@
   };
   const fastReport=()=>{
     try{
-      const data=ensureBase(),sel=$('month').value,stores=sel?(data.monthStores[sel]||{}):data.allStores,count=sel?(data.months[sel]||0):rows.length,a=Object.entries(stores).sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0],'pl')),L=['PanParagon Monitor — raport',`Okres: ${sel?ml(sel):'wszystkie miesiące'}`,`Liczba paragonów: ${count}`,'','Ranking sklepów:'];
+      const data=ensureBase(),sel=$('month').value,count=sel?(data.months[sel]||0):rows.length,a=sel?Object.entries(data.monthStores[sel]||{}).sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0],'pl')):data.ae,L=['PanParagon Monitor — raport',`Okres: ${sel?ml(sel):'wszystkie miesiące'}`,`Liczba paragonów: ${count}`,'','Ranking sklepów:'];
       a.forEach(([n,c],i)=>L.push(`${i+1}. ${n} — ${c}`));
       const text=L.join('\n');$('report').value=text;
       return{type:'panparagon_monthly_report',source:'PanParagon Monitor',period:sel||'all',report:text,receiptCount:count,stores:a.map(([store,count])=>({store,count})),sentAt:new Date().toISOString()};
