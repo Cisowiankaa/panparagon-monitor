@@ -1,19 +1,27 @@
 (()=>{
-  let depth=0,dirtyCounters=false,dirtyPanel=false;
+  let depth=0,dirtyCounters=false,dirtyPanel=false,panelRuns=0;
   let baseCounters=null,basePanel=null,basePush=null,baseAuto=null;
   const batching=()=>depth>0;
   const begin=()=>{depth++};
   const end=()=>{depth=Math.max(0,depth-1);flush()};
+  const runPanel=()=>{if(!basePanel)return;panelRuns++;return basePanel()};
   const flush=()=>{
     if(depth>0)return;
-    if(dirtyCounters&&baseCounters){dirtyCounters=false;dirtyPanel=false;baseCounters();return}
-    if(dirtyPanel&&basePanel){dirtyPanel=false;basePanel()}
+    const needCounters=dirtyCounters,needPanel=dirtyPanel;
+    dirtyCounters=false;dirtyPanel=false;
+    if(needCounters&&baseCounters){
+      const before=panelRuns;
+      baseCounters();
+      if(needPanel&&panelRuns===before&&basePanel)runPanel();
+      return;
+    }
+    if(needPanel&&basePanel)runPanel();
   };
   const install=()=>{
     try{
       if(typeof updateUnsyncedPanel==='function'&&!basePanel){
         basePanel=updateUnsyncedPanel;
-        updateUnsyncedPanel=function(){if(batching()){dirtyPanel=true;return}return basePanel()};
+        updateUnsyncedPanel=function(){if(batching()){dirtyPanel=true;return}return runPanel()};
       }
       if(typeof updateSyncCounters==='function'&&!baseCounters){
         baseCounters=updateSyncCounters;
