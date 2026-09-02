@@ -6,7 +6,6 @@
     document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v===target));
     document.querySelectorAll('#nav button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===id));
     try{
-      window.PanParagonMainIndex?.renderView?.(id);
       if(id==='months')window.PanParagonOwners?.refreshViews?.();
       if(id==='stores')window.PanParagonStoreFilter?.render?.();
       if(id==='integrations'&&typeof user!=='undefined'&&user&&typeof runDiagnostics==='function')runDiagnostics(true);
