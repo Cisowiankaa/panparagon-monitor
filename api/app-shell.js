@@ -21,7 +21,7 @@ export default async function handler(req,res){
       ['owner-import.js',13],
       ['owner-backup-restore.js',2],
       ['sync-fetch-reuse.js',6],
-      ['owner-view-stabilize.js',2],
+      ['owner-view-stabilize.js',3],
       ['sync-history-cache.js',1],
       ['store-details.js',4],
       ['store-fast-refresh.js',5],
