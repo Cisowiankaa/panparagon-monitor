@@ -1,8 +1,12 @@
-// deployment marker: synchronized store year filters
+// deployment marker: indexed store year filters
 (()=>{
   let query='',year='';
-  const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
-  const years=()=>[...new Set(rows.map(r=>rowDate(r)?.getFullYear()).filter(Boolean))].sort((a,b)=>b-a);
+  const index=()=>window.PanParagonMainIndex?.get?.()||null;
+  const availableYears=()=>{
+    const data=index();
+    if(data?.yearEntries)return data.yearEntries.map(([y])=>String(y));
+    return [];
+  };
   const ensureControls=()=>{
     const sec=document.getElementById('stores'),table=document.getElementById('storesTable');
     if(!sec||!table||document.getElementById('storeSearch'))return;
@@ -16,17 +20,29 @@
   };
   const refreshYears=()=>{
     const s=document.getElementById('storeYear');if(!s)return;
-    const old=year;
-    s.innerHTML='<option value="">Wszystkie lata</option>'+years().map(y=>`<option value="${y}">${y}</option>`).join('');
-    if(old&&[...s.options].some(o=>o.value===old))s.value=old;else if(old)year='';
+    const old=year,list=availableYears();
+    s.innerHTML='<option value="">Wszystkie lata</option>'+list.map(y=>`<option value="${y}">${y}</option>`).join('');
+    if(old&&list.includes(old))s.value=old;else if(old)year='';
+  };
+  const storeCounts=()=>{
+    const data=index();if(!data)return {};
+    if(!year)return data.allStores||{};
+    const out={};
+    for(const [month,bucket] of Object.entries(data.monthStores||{})){
+      if(!month.startsWith(year+'-'))continue;
+      for(const [name,count] of Object.entries(bucket||{}))out[name]=(out[name]||0)+count;
+    }
+    return out;
   };
   const renderFiltered=()=>{
     ensureControls();refreshYears();const box=document.getElementById('storesTable');if(!box)return;
-    const counts={};
-    rows.forEach(r=>{const d=rowDate(r);if(year&&(!d||String(d.getFullYear())!==year))return;const n=storeName(r);if(query&&!n.toLocaleLowerCase('pl').includes(query))return;counts[n]=(counts[n]||0)+1});
-    const list=Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
+    const counts=storeCounts();
+    const list=Object.entries(counts)
+      .filter(([name])=>!query||name.toLocaleLowerCase('pl').includes(query))
+      .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
     box.innerHTML=list.length?`<table><tr><th>#</th><th>Sklep</th><th>Paragony${year?' · '+year:''}</th></tr>${list.map(([n,c],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td><b>${c}</b></td></tr>`).join('')}</table>`:'<div class="empty">Brak sklepów pasujących do filtrów.</div>';
-    const info=document.getElementById('storeFilterInfo');if(info)info.textContent=`Znaleziono sklepów: ${list.length} · paragony: ${list.reduce((s,x)=>s+x[1],0)}${year?' · rok '+year:' · wszystkie lata'}${query?' · wyszukiwanie: „'+query+'”':''}.`;
+    const total=list.reduce((s,x)=>s+x[1],0),info=document.getElementById('storeFilterInfo');
+    if(info)info.textContent=`Znaleziono sklepów: ${list.length} · paragony: ${total}${year?' · rok '+year:' · wszystkie lata'}${query?' · wyszukiwanie: „'+query+'”':''}.`;
   };
   const setYear=(value,opts={})=>{
     ensureControls();refreshYears();
@@ -39,8 +55,12 @@
   };
   const install=()=>{
     ensureControls();
-    document.querySelectorAll('#nav button').forEach(b=>{if(b.dataset.v==='stores')b.addEventListener('click',()=>setTimeout(renderFiltered,0))});
-    renderFiltered();
+    if(document.getElementById('stores')?.classList.contains('on'))renderFiltered();
+    document.addEventListener('panparagon:data-changed',e=>{
+      if(e?.detail?.reason==='main-render-fast')return;
+      refreshYears();
+      if(document.getElementById('stores')?.classList.contains('on'))renderFiltered();
+    });
   };
   window.PanParagonStoreFilter={getYear:()=>year,setYear,render:renderFiltered,refreshYears};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
