@@ -17,11 +17,11 @@ export default async function handler(req,res){
       ['sync-ui-batch.js',3],
       ['sync-filter.js',1],
       ['store-date-cache.js',2],
-      ['main-render-fast.js',6],
+      ['main-render-fast.js',7],
       ['owner-import.js',13],
       ['owner-backup-restore.js',2],
       ['sync-fetch-reuse.js',6],
-      ['owner-view-stabilize.js',3],
+      ['owner-view-stabilize.js',4],
       ['sync-history-cache.js',1],
       ['store-details.js',4],
       ['store-fast-refresh.js',5],
@@ -31,7 +31,7 @@ export default async function handler(req,res){
       ['store-year-detail.js',16],
       ['store-month-cache.js',2],
       ['store-stats.js',4],
-      ['nav-recovery.js',2]
+      ['nav-recovery.js',3]
     ];
     for(const [name] of managed){
       const escaped=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
