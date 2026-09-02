@@ -4,6 +4,7 @@
   let hashCache=new WeakMap(),keyCache=new WeakMap();
   let localRowsRef=null,localLen=-1,localHashes=null,localEntries=null,hashBuckets=null;
   let pendingRowsRef=null,pendingLen=-1,pendingCloudRef=null,pendingCloudSize=-1,pendingRows=null;
+  let cloudOnlyRowsRef=null,cloudOnlyLen=-1,cloudOnlyCloudRef=null,cloudOnlyCloudSize=-1,cloudOnlyValue=null;
 
   const cachedRowHash=row=>{
     if(!row||typeof row!=='object')return originalRowHash(row);
@@ -15,8 +16,11 @@
     if(keyCache.has(row))return keyCache.get(row);
     const k=originalRowKey(row);keyCache.set(row,k);return k;
   };
-  const resetPending=()=>{pendingRowsRef=null;pendingLen=-1;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1};
-  const invalidateAggregates=()=>{localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;hashBuckets=null;resetPending()};
+  const resetCloudDerived=()=>{
+    pendingRowsRef=null;pendingLen=-1;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1;
+    cloudOnlyRowsRef=null;cloudOnlyLen=-1;cloudOnlyCloudRef=null;cloudOnlyCloudSize=-1;cloudOnlyValue=null;
+  };
+  const invalidateAggregates=()=>{localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;hashBuckets=null;resetCloudDerived()};
 
   const ensureLocal=()=>{
     const src=Array.isArray(rows)?rows:[];
@@ -26,7 +30,7 @@
       const r=src[i],h=cachedRowHash(r);localHashes.add(h);localEntries[i]=[r,h];
       const bucket=hashBuckets.get(h);if(bucket)bucket.push(r);else hashBuckets.set(h,[r]);
     }
-    resetPending();
+    resetCloudDerived();
   };
 
   rowHash=cachedRowHash;
@@ -43,7 +47,7 @@
       localHashes.add(h);localEntries.push([r,h]);
       if(bucket)bucket.push(r);else hashBuckets.set(h,[r]);
     }
-    localRowsRef=rows;localLen=rows.length;resetPending();
+    localRowsRef=rows;localLen=rows.length;resetCloudDerived();
     return{added,dup};
   };
   getUnsyncedRows=()=>{
@@ -56,8 +60,10 @@
   };
   getCloudOnlyCount=()=>{
     ensureLocal();
-    const cloud=cloudHashes instanceof Set?cloudHashes:new Set();let n=0;
-    for(const h of cloud)if(!localHashes.has(h))n++;
+    const cloud=cloudHashes instanceof Set?cloudHashes:new Set();
+    if(cloudOnlyValue!==null&&cloudOnlyRowsRef===localRowsRef&&cloudOnlyLen===localLen&&cloudOnlyCloudRef===cloud&&cloudOnlyCloudSize===cloud.size)return cloudOnlyValue;
+    let n=0;for(const h of cloud)if(!localHashes.has(h))n++;
+    cloudOnlyRowsRef=localRowsRef;cloudOnlyLen=localLen;cloudOnlyCloudRef=cloud;cloudOnlyCloudSize=cloud.size;cloudOnlyValue=n;
     return n;
   };
 
@@ -66,7 +72,7 @@
     key:cachedRowKey,
     invalidate:()=>{hashCache=new WeakMap();keyCache=new WeakMap();invalidateAggregates()},
     invalidateAggregates,
-    invalidatePending:resetPending
+    invalidatePending:resetCloudDerived
   };
   document.addEventListener('panparagon:data-changed',invalidateAggregates);
 })();
