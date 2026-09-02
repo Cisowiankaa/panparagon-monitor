@@ -53,18 +53,33 @@
     const msg=st.lastError||'Nieznany błąd synchronizacji';
     return `<details style="grid-column:1/-1;margin-top:4px;padding:8px 10px;border:1px solid var(--l);border-radius:8px;background:#101821"><summary class="badtxt" style="cursor:pointer">Szczegóły błędu</summary><div class="small" style="margin-top:8px"><b>Rekord:</b> ${esc(h)}<br><b>Ostatni błąd:</b> ${esc(msg)}<br><b>Liczba prób:</b> ${st.attempts||0}<br><b>Ostatnia zmiana:</b> ${esc(fmtTime(st.updatedAt))}<br><b>Kolejna próba:</b> ${esc(fmtTime(st.nextRetry))}</div></details>`;
   };
-  const renderPanel=()=>{
+
+  let panelStateVersion=0,lastPendingRef=null,lastPendingLen=-1,lastUserId=null,lastCloudTotal=Symbol('unset'),lastPanelVersion=-1;
+  const invalidatePanel=()=>{panelStateVersion++};
+  const renderPanel=(force=false)=>{
     const panel=document.getElementById('unsyncedPanel');if(!panel)return;
     try{
-      if(!user){panel.innerHTML='<div class="empty">Zaloguj się, aby sprawdzić.</div>';refreshBadges();return}
-      if(cloudTotal==null){panel.innerHTML='<div class="empty">Sprawdzanie chmury…</div>';refreshBadges();return}
-      const pending=pendingRows(),shown=pending.slice(0,12);
-      if(!pending.length){panel.innerHTML='<div class="empty oktxt">Wszystkie lokalne rekordy są w chmurze ✓</div>';refreshBadges();return}
-      panel.innerHTML=`<div class="small" style="margin-bottom:8px">Oczekuje: <b>${pending.length}</b>. Pokazuję pierwsze ${shown.length}.</div>`+shown.map(r=>{
+      const uid=user?.id||null;
+      if(!user){
+        if(!force&&lastUserId===uid&&lastPanelVersion===panelStateVersion)return;
+        panel.innerHTML='<div class="empty">Zaloguj się, aby sprawdzić.</div>';refreshBadges();
+        lastPendingRef=null;lastPendingLen=-1;lastUserId=uid;lastCloudTotal=cloudTotal;lastPanelVersion=panelStateVersion;return
+      }
+      if(cloudTotal==null){
+        if(!force&&lastUserId===uid&&lastCloudTotal===cloudTotal&&lastPanelVersion===panelStateVersion)return;
+        panel.innerHTML='<div class="empty">Sprawdzanie chmury…</div>';refreshBadges();
+        lastPendingRef=null;lastPendingLen=-1;lastUserId=uid;lastCloudTotal=cloudTotal;lastPanelVersion=panelStateVersion;return
+      }
+      const pending=pendingRows();
+      if(!force&&pending===lastPendingRef&&pending.length===lastPendingLen&&lastUserId===uid&&lastCloudTotal===cloudTotal&&lastPanelVersion===panelStateVersion){refreshBadges();return}
+      const shown=pending.slice(0,12);
+      if(!pending.length){panel.innerHTML='<div class="empty oktxt">Wszystkie lokalne rekordy są w chmurze ✓</div>';refreshBadges()}
+      else panel.innerHTML=`<div class="small" style="margin-bottom:8px">Oczekuje: <b>${pending.length}</b>. Pokazuję pierwsze ${shown.length}.</div>`+shown.map(r=>{
         const h=rowHash(r),st=get(h),d=rowDate(r),shop=(r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep';
         const retry=st.status==='błąd'&&st.nextRetry?`<div class="small">próba ${st.attempts} · ponów ${new Date(st.nextRetry).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>`:'';
         return `<div class="pending-item"><span>${d?ml(mk(d)):'Bez daty'}</span><b>${esc(shop)}</b><span class="${clsFor(st.status)}">${labelFor(st.status)}${retry}</span>${errorDetails(h,st)}</div>`
-      }).join('');refreshBadges();
+      }).join('');
+      refreshBadges();lastPendingRef=pending;lastPendingLen=pending.length;lastUserId=uid;lastCloudTotal=cloudTotal;lastPanelVersion=panelStateVersion;
     }catch(e){panel.textContent='Nie udało się odświeżyć statusów: '+e.message}
   };
   const injectUI=()=>{
@@ -108,12 +123,13 @@
         const base=updateUnsyncedPanel;updateUnsyncedPanel=function(){base();renderPanel()};
       }
     }catch{}
-    renderPanel();refreshBadges();
+    renderPanel(true);refreshBadges();
   };
 
-  window.addEventListener('ppm-sync-state-change',()=>{refreshBadges()});
+  window.addEventListener('ppm-sync-state-change',()=>{invalidatePanel();refreshBadges()});
   window.addEventListener('ppm-sync-retry-tick',()=>retryFailed(false));
   window.addEventListener('online',()=>retryFailed(false));
+  document.addEventListener('panparagon:data-changed',invalidatePanel);
   setInterval(()=>window.dispatchEvent(new CustomEvent('ppm-sync-retry-tick')),60000);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
