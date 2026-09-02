@@ -2,7 +2,7 @@
   if(typeof importFile!=='function'||typeof parseCSV!=='function'||typeof mergeRows!=='function')return;
   const OWNER_KEY='__ppm_owner';
   const SOURCE_KEY='__ppm_owner_source';
-  const MIGRATION_KEY='ppm_owner_migration_v5_sep_to_ja';
+  const MIGRATION_KEY='ppm_owner_migration_v6_sep_to_ja';
   const CUTOFF=new Date(2026,8,1);
   const OCTOBER=new Date(2026,9,1);
   const validOwner=v=>v==='mama'||v==='ja';
@@ -38,7 +38,7 @@
   const annotateOwnerViews=()=>{if(annotating)return;annotating=true;try{updateMonthSummary();annotateMonthsTable();annotateHistory()}finally{annotating=false}};
   const scheduleAnnotate=()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;annotateOwnerViews()})};
   const migrateExisting=async()=>{
-    if(!Array.isArray(rows)||!rows.length)return{changed:0,ja:0,mama:0};
+    if(!Array.isArray(rows)||!rows.length)return{changed:0,forcedSeptember:0,ja:0,mama:0};
     const forceRepair=localStorage.getItem(MIGRATION_KEY)!=='done';
     let changed=0,forcedSeptember=0;const counts={ja:0,mama:0};
     for(const r of rows){
@@ -48,24 +48,41 @@
       const explicitJa=source==='import-ja';
       if(forceRepair&&d&&d>=CUTOFF&&d<OCTOBER&&!explicitMama){
         if(owner!=='ja'){r[OWNER_KEY]='ja';changed++;forcedSeptember++}
-        if(source!=='sep-repaired-v5'&&!explicitJa){r[SOURCE_KEY]='sep-repaired-v5';changed++}
-        owner='ja';source=String(r[SOURCE_KEY]||'');
+        if(source!=='sep-repaired-v6'&&!explicitJa){r[SOURCE_KEY]='sep-repaired-v6';changed++}
+        owner='ja';
       }else if(forceRepair&&!explicitMama&&!explicitJa&&d){
         const repaired=d<CUTOFF?'mama':'ja';
         if(owner!==repaired){r[OWNER_KEY]=repaired;changed++}
-        if(source!=='date-repaired-v5'){r[SOURCE_KEY]='date-repaired-v5';changed++}
+        if(source!=='date-repaired-v6'){r[SOURCE_KEY]='date-repaired-v6';changed++}
         owner=repaired;
       }else if(!validOwner(owner)){
-        owner=d&&d<CUTOFF?'mama':'ja';r[OWNER_KEY]=owner;r[SOURCE_KEY]=d?'date-repaired-v5':'legacy-unknown';changed++;
+        owner=d&&d<CUTOFF?'mama':'ja';r[OWNER_KEY]=owner;r[SOURCE_KEY]=d?'date-repaired-v6':'legacy-unknown';changed++;
       }
       counts[owner]++;
     }
     if(forceRepair)localStorage.setItem(MIGRATION_KEY,'done');
-    if(changed){window.PanParagonHashCache?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v5',changed,forcedSeptember}}));try{if(db&&typeof persistRows==='function')await persistRows()}catch{}}
+    if(changed){window.PanParagonHashCache?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v6',changed,forcedSeptember}}));try{if(db&&typeof persistRows==='function')await persistRows()}catch{}}
     scheduleAnnotate();return{changed,forcedSeptember,...counts};
+  };
+  const migrateWhenStorageReady=()=>{
+    let tries=0,running=false;
+    const tick=async()=>{
+      if(running)return;tries++;
+      const ready=Array.isArray(rows)&&rows.length>0;
+      if(!ready&&tries<100){setTimeout(tick,50);return}
+      if(!ready)return;
+      running=true;
+      try{
+        if(headers?.length&&typeof guess==='function')guess();
+        const result=await migrateExisting();
+        if(result?.changed&&typeof render==='function')render(false);
+        scheduleAnnotate();
+      }finally{running=false}
+    };
+    setTimeout(tick,0);
   };
   importFile=function(file){if(!file)return;const chosen=selectedOwner(),reader=new FileReader();reader.onload=async()=>{try{const p=parseCSV(reader.result),union=[...headers];p.h.forEach(h=>{if(!union.includes(h))union.push(h)});headers=union.length?union:p.h;if(typeof guess==='function')guess();const counts=classifyRows(p.rs,chosen),x=mergeRows(p.rs);if(typeof render==='function')render(false);scheduleAnnotate();try{await persistRows();const fn=document.getElementById('fn');if(fn)fn.textContent=`${file.name} — dodano ${x.added}, duplikaty: ${x.dup}. W pliku: ${counts.ja} moje, ${counts.mama} Mamy. ZAPISANO trwale. Łącznie: ${rows.length}`;if(typeof updateUnsyncedPanel==='function')updateUnsyncedPanel();if(typeof autoSync==='function')await autoSync('po imporcie CSV');scheduleAnnotate()}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent=`Błąd trwałego zapisu: ${e.message}`}}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent='Błąd importu CSV: '+(e?.message||String(e))}};reader.readAsText(file,'utf-8')};
   window.PanParagonOwners={key:OWNER_KEY,sourceKey:SOURCE_KEY,cutoff:'2026-09-01',get:getOwner,label:r=>ownerLabel(getOwner(r)),selectedOwner,classifyRows,countsForMonth,migrateExisting,ensureUI,refreshViews:annotateOwnerViews};
-  const install=()=>{ensureUI();ensureMonthSummary();document.getElementById('month')?.addEventListener('change',scheduleAnnotate);for(const id of ['hist','monthsTable']){const el=document.getElementById(id);if(el)new MutationObserver(scheduleAnnotate).observe(el,{childList:true,subtree:true})}document.addEventListener('panparagon:data-changed',scheduleAnnotate);scheduleAnnotate()};
+  const install=()=>{ensureUI();ensureMonthSummary();document.getElementById('month')?.addEventListener('change',scheduleAnnotate);for(const id of ['hist','monthsTable']){const el=document.getElementById(id);if(el)new MutationObserver(scheduleAnnotate).observe(el,{childList:true,subtree:true})}document.addEventListener('panparagon:data-changed',scheduleAnnotate);scheduleAnnotate();migrateWhenStorageReady()};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
