@@ -3,7 +3,7 @@
   const SOURCE_KEY='__ppm_owner_source';
   const LOCAL_KEY='ppm_owner_reconcile_v12_local';
   const CLOUD_KEY='ppm_owner_reconcile_v12_cloud';
-  let reconciling=false;
+  let reconciling=false,idleHandle=0;
 
   const owners=()=>window.PanParagonOwners;
   const refresh=()=>{try{owners()?.refreshViews?.()}catch(e){console.warn('Owner refresh fallback',e)}};
@@ -65,41 +65,30 @@
     refresh();
   };
 
-  const install=()=>{
-    const baseRender=typeof render==='function'?render:null;
-    if(baseRender){
-      render=function(...args){
-        const out=baseRender.apply(this,args);
-        refresh();
-        return out;
-      };
-    }
+  const scheduleIdleRepair=()=>{
+    if(localStorage.getItem(LOCAL_KEY)==='done'||idleHandle)return;
+    const run=async()=>{
+      idleHandle=0;
+      if(!Array.isArray(rows)||!rows.length)return;
+      await reconcileLocal();
+    };
+    if(typeof requestIdleCallback==='function')idleHandle=requestIdleCallback(run,{timeout:1800});
+    else idleHandle=setTimeout(run,700);
+  };
 
+  const install=()=>{
     const baseAuto=typeof autoSync==='function'?autoSync:null;
     if(baseAuto){
       autoSync=async function(...args){
         const out=await baseAuto.apply(this,args);
         await reconcile();
-        refresh();
         return out;
       };
     }
 
-    document.getElementById('month')?.addEventListener('change',refresh);
-    document.addEventListener('panparagon:data-changed',()=>queueMicrotask(refresh));
-
-    let tries=0;
-    const ready=async()=>{
-      tries++;
-      if((!Array.isArray(rows)||!rows.length)&&tries<100){setTimeout(ready,50);return}
-      if(Array.isArray(rows)&&rows.length){
-        await reconcileLocal();
-        refresh();
-      }
-    };
-    setTimeout(ready,0);
+    scheduleIdleRepair();
   };
 
-  window.PanParagonOwnerStabilizer={reconcile,refresh};
+  window.PanParagonOwnerStabilizer={reconcile,refresh,scheduleIdleRepair};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
