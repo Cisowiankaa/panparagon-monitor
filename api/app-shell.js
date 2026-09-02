@@ -20,6 +20,7 @@ export default async function handler(req,res){
       ['main-render-fast.js',3],
       ['owner-import.js',8],
       ['sync-fetch-reuse.js',6],
+      ['sync-history-cache.js',1],
       ['store-details.js',4],
       ['store-fast-refresh.js',5],
       ['store-sort.js',2],
