@@ -9,7 +9,7 @@ export default async function handler(req,res){
     const oldStartup="(async()=>{await initStorage();await consumeAuthHash();await refreshUser();$('webhook').value=webhook();$('deviceName').value=deviceName();showLastSync();if(user&&navigator.onLine)await autoSync('przy uruchomieniu');if(headers.length){guess();render(false)}else updateMode();if(user){await loadHistory();await runDiagnostics(true)}else updateSyncCounters()})();";
     const newStartup="(async()=>{await initStorage();if(headers.length)guess();await window.PanParagonOwners?.migrateExisting?.();$('webhook').value=webhook();$('deviceName').value=deviceName();showLastSync();if(headers.length)render(false);else updateMode();await new Promise(resolve=>requestAnimationFrame(resolve));await consumeAuthHash();await refreshUser();if(user&&navigator.onLine){autoSync('przy uruchomieniu').catch(()=>{})}else updateSyncCounters()})();";
     if(html.includes(oldStartup)) html=html.replace(oldStartup,newStartup);
-    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=4"></script><script src="/sync-hash-cache.js?v=5"></script><script src="/sync-retry.js?v=6"></script><script src="/sync-ui-batch.js?v=2"></script><script src="/sync-fetch-reuse.js?v=6"></script><script src="/sync-filter.js?v=1"></script><script src="/owner-import.js?v=7"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=2"></script><script src="/store-year-detail.js?v=14"></script><script src="/store-stats.js?v=4"></script></body>');
+    if(!html.includes('/sync-retry.js')) html=html.replace('</body>','<script src="/storage-batch.js?v=4"></script><script src="/sync-hash-cache.js?v=5"></script><script src="/sync-retry.js?v=6"></script><script src="/sync-ui-batch.js?v=2"></script><script src="/sync-fetch-reuse.js?v=6"></script><script src="/sync-filter.js?v=1"></script><script src="/owner-import.js?v=7"></script><script src="/store-date-cache.js?v=1"></script><script src="/main-render-fast.js?v=3"></script><script src="/store-details.js?v=4"></script><script src="/store-fast-refresh.js?v=5"></script><script src="/store-sort.js?v=2"></script><script src="/store-filter.js?v=2"></script><script src="/store-year-detail.js?v=14"></script><script src="/store-stats.js?v=4"></script><script src="/nav-recovery.js?v=1"></script></body>');
     else {
       if(!html.includes('/storage-batch.js')) html=html.replace(/(<script src="\/sync-hash-cache\.js\?v=\d+"><\/script>)/,'<script src="/storage-batch.js?v=4"></script>$1');
       else html=html.replace(/\/storage-batch\.js\?v=\d+/g,'/storage-batch.js?v=4');
@@ -39,6 +39,8 @@ export default async function handler(req,res){
       else html=html.replace(/\/store-year-detail\.js\?v=\d+/g,'/store-year-detail.js?v=14');
       if(!html.includes('/store-stats.js')) html=html.replace('</body>','<script src="/store-stats.js?v=4"></script></body>');
       else html=html.replace(/\/store-stats\.js\?v=\d+/g,'/store-stats.js?v=4');
+      if(!html.includes('/nav-recovery.js')) html=html.replace('</body>','<script src="/nav-recovery.js?v=1"></script></body>');
+      else html=html.replace(/\/nav-recovery\.js\?v=\d+/g,'/nav-recovery.js?v=1');
     }
     res.setHeader('content-type','text/html; charset=utf-8');
     res.setHeader('cache-control','no-store');
