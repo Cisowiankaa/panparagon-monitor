@@ -1,15 +1,19 @@
 (()=>{
   const original=window.rowDate;
   if(typeof original!=='function')return;
-  const cache=new WeakMap();
+  let cache=new WeakMap();
+  let lastCol=String(dateCol||'');
+  const invalidate=()=>{cache=new WeakMap();lastCol=String(dateCol||'')};
   const get=r=>{
+    const col=String(dateCol||'');
+    if(col!==lastCol)invalidate();
     if(!r||typeof r!=='object')return original(r);
-    const col=String(dateCol||''),hit=cache.get(r);
-    if(hit&&hit.col===col)return hit.date;
+    const hit=cache.get(r);
+    if(hit)return hit;
     const date=original(r);
-    cache.set(r,{col,date});
+    cache.set(r,date);
     return date;
   };
   window.rowDate=get;
-  window.PanParagonDateCache={get};
+  window.PanParagonDateCache={get,invalidate};
 })();
