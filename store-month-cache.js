@@ -1,12 +1,13 @@
 (()=>{
   const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const localDayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  let cacheKey='',monthRows=new Map();
+  const CHUNK=250;
+  let cacheKey='',monthRows=new Map(),renderToken=0;
 
   const currentStore=()=>String(window.PanParagonStoreDetails?.getCurrentStore?.()||document.getElementById('storeDetailTitle')?.textContent||'').replace(/\s—\s\d{4}$/,'').trim();
   const currentYear=()=>document.getElementById('storeDetailYear')?.value||'';
   const version=()=>window.PanParagonMainIndex?.version?.()??0;
-  const invalidate=()=>{cacheKey='';monthRows=new Map()};
+  const invalidate=()=>{cacheKey='';monthRows=new Map();renderToken++};
 
   const sourceRows=()=>{
     const name=currentStore(),year=currentYear(),api=window.PanParagonStoreYearDetail;
@@ -31,8 +32,29 @@
   };
 
   const setText=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=String(value)};
+  const renderReceiptRows=(box,list,token)=>{
+    if(!box)return;
+    if(!list.length){box.innerHTML='<div class="empty">Brak paragonów w tym miesiącu.</div>';return}
+    box.innerHTML='<table><thead><tr><th>#</th><th>Data paragonu</th></tr></thead><tbody></tbody></table><div class="small" data-receipt-progress style="margin-top:8px"></div>';
+    const body=box.querySelector('tbody'),progress=box.querySelector('[data-receipt-progress]');
+    let offset=0;
+    const step=()=>{
+      if(token!==renderToken||!body?.isConnected)return;
+      const end=Math.min(offset+CHUNK,list.length),frag=document.createDocumentFragment();
+      for(let i=offset;i<end;i++){
+        const tr=document.createElement('tr'),d=cachedDate(list[i]);
+        tr.innerHTML=`<td>${i+1}</td><td><b>${d?d.toLocaleDateString('pl-PL'):'Brak daty'}</b></td>`;
+        frag.appendChild(tr);
+      }
+      body.appendChild(frag);offset=end;
+      if(progress)progress.textContent=offset<list.length?`Wyświetlono ${offset} z ${list.length}…`:`Wyświetlono ${list.length} paragonów.`;
+      if(offset<list.length)requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
   const showMonth=(key)=>{
-    const name=currentStore(),list=ensureIndex().get(key)||[],days={};
+    const token=++renderToken,name=currentStore(),list=ensureIndex().get(key)||[],days={};
     for(const r of list){const d=cachedDate(r);if(!d)continue;const dk=localDayKey(d);days[dk]=(days[dk]||0)+1}
     const de=Object.entries(days).sort((a,b)=>a[0].localeCompare(b[0])),best=[...de].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0],card=document.getElementById('storeReceiptCard');
     if(!card)return false;
@@ -43,7 +65,7 @@
     setText('storeBestDayCount',best?best[1]+' paragonów':'Brak danych');
     const dayBox=document.getElementById('storeDayTable'),receiptBox=document.getElementById('storeReceiptTable');
     if(dayBox)dayBox.innerHTML=de.length?'<table><tr><th>Dzień</th><th>Paragony</th></tr>'+de.map(([d,n])=>`<tr><td>${new Date(d+'T12:00:00').toLocaleDateString('pl-PL')}</td><td><b>${n}</b></td></tr>`).join('')+'</table>':'<div class="empty">Brak danych dziennych.</div>';
-    if(receiptBox)receiptBox.innerHTML=list.length?'<table><tr><th>#</th><th>Data paragonu</th></tr>'+list.map((r,i)=>{const d=cachedDate(r);return `<tr><td>${i+1}</td><td><b>${d?d.toLocaleDateString('pl-PL'):'Brak daty'}</b></td></tr>`}).join('')+'</table>':'<div class="empty">Brak paragonów w tym miesiącu.</div>';
+    renderReceiptRows(receiptBox,list,token);
     card.style.display='block';card.scrollIntoView({behavior:'smooth',block:'start'});return true;
   };
 
