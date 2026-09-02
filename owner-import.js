@@ -80,12 +80,45 @@
   const refreshViews=()=>{try{const index=getOwnerIndex();updateMonthSummary(index);if(document.getElementById('months')?.classList.contains('on'))annotateMonthsTable(index);if(document.getElementById('dash')?.classList.contains('on'))annotateHistory(index)}catch(e){console.warn('Owner view fallback',e)}};
   const scheduleViews=()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;refreshViews()})};
 
+  const isMigratedExisting=r=>/^existing-all-ja-v(?:7|8)$/.test(String(r?.[SOURCE_KEY]||''));
   const migrateExisting=async()=>{
-    if(!Array.isArray(rows)||!rows.length)return{changed:0,ja:0,mama:0};
-    const force=localStorage.getItem(MIGRATION_KEY)!=='done';let changed=0;
-    if(force){for(const r of rows){if(!r||typeof r!=='object')continue;if(r[OWNER_KEY]!=='ja'){r[OWNER_KEY]='ja';changed++}if(r[SOURCE_KEY]!=='existing-all-ja-v8'){r[SOURCE_KEY]='existing-all-ja-v8';changed++}}localStorage.setItem(MIGRATION_KEY,'done');localStorage.removeItem(CLOUD_MIGRATION_KEY)}
-    if(changed){invalidateOwnerIndex();window.PanParagonHashCache?.invalidate?.();window.PanParagonDateCache?.invalidate?.();window.PanParagonMainIndex?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v8',changed}}));try{if(db&&typeof persistRows==='function')await persistRows()}catch{}}
-    refreshViews();return{changed,ja:rows.length,mama:0};
+    if(!Array.isArray(rows)||!rows.length)return{changed:0,ja:0,mama:0,persisted:true};
+    const force=localStorage.getItem(MIGRATION_KEY)!=='done';
+    const repair=!force&&rows.some(r=>r&&typeof r==='object'&&isMigratedExisting(r)&&r[OWNER_KEY]!=='ja');
+    let changed=0;
+    if(force||repair){
+      for(const r of rows){
+        if(!r||typeof r!=='object')continue;
+        if(force){
+          if(r[OWNER_KEY]!=='ja'){r[OWNER_KEY]='ja';changed++}
+          if(r[SOURCE_KEY]!=='existing-all-ja-v8'){r[SOURCE_KEY]='existing-all-ja-v8';changed++}
+        }else if(isMigratedExisting(r)&&r[OWNER_KEY]!=='ja'){
+          r[OWNER_KEY]='ja';
+          r[SOURCE_KEY]='existing-all-ja-v8';
+          changed++;
+        }
+      }
+    }
+    if(changed){
+      invalidateOwnerIndex();window.PanParagonHashCache?.invalidate?.();window.PanParagonDateCache?.invalidate?.();window.PanParagonMainIndex?.invalidate?.();document.dispatchEvent(new CustomEvent('panparagon:data-changed',{detail:{reason:'owner-migration-v8',changed}}));
+      try{
+        if(!db||typeof persistRows!=='function')throw new Error('Brak trwałego magazynu');
+        await persistRows();
+        localStorage.setItem(MIGRATION_KEY,'done');
+        localStorage.removeItem(CLOUD_MIGRATION_KEY);
+      }catch(e){
+        localStorage.removeItem(MIGRATION_KEY);
+        console.warn('Owner migration persist fallback',e);
+        refreshViews();
+        return{changed,ja:getOwnerIndex().all.ja,mama:getOwnerIndex().all.mama,persisted:false};
+      }
+    }else if(force){
+      localStorage.setItem(MIGRATION_KEY,'done');
+      localStorage.removeItem(CLOUD_MIGRATION_KEY);
+    }
+    refreshViews();
+    const counts=getOwnerIndex().all;
+    return{changed,ja:counts.ja,mama:counts.mama,persisted:true};
   };
 
   const cloudUpsertOwnerRows=async list=>{
@@ -99,7 +132,7 @@
   const syncExistingOwnersToCloud=async()=>{if(cloudOwnerSyncing||localStorage.getItem(CLOUD_MIGRATION_KEY)==='done'||!navigator.onLine||!Array.isArray(rows)||!rows.length||!user)return false;cloudOwnerSyncing=true;try{await cloudUpsertOwnerRows(rows);localStorage.setItem(CLOUD_MIGRATION_KEY,'done');if(typeof fetchCloudHashes==='function')try{await fetchCloudHashes()}catch{}return true}catch(e){console.warn('Owner cloud sync fallback',e);return false}finally{cloudOwnerSyncing=false}};
   const syncChangedOwnersToCloud=async list=>{if(!Array.isArray(list)||!list.length||!user)return false;try{await cloudUpsertOwnerRows(list);return true}catch(e){console.warn('Owner duplicate cloud sync fallback',e);return false}};
 
-  const migrateWhenStorageReady=()=>{let tries=0;const tick=async()=>{tries++;if((!Array.isArray(rows)||!rows.length)&&tries<100){setTimeout(tick,50);return}if(!Array.isArray(rows)||!rows.length)return;if(headers?.length&&typeof guess==='function')guess();const r=await migrateExisting();if(r.changed&&typeof render==='function')render(false);refreshViews();if(user)syncExistingOwnersToCloud().catch(()=>{})};setTimeout(tick,0)};
+  const migrateWhenStorageReady=()=>{let tries=0;const tick=async()=>{tries++;if((!Array.isArray(rows)||!rows.length)&&tries<100){setTimeout(tick,50);return}if(!Array.isArray(rows)||!rows.length)return;if(headers?.length&&typeof guess==='function')guess();const r=await migrateExisting();if(r.changed&&typeof render==='function')render(false);refreshViews();if(r.persisted&&user)syncExistingOwnersToCloud().catch(()=>{})};setTimeout(tick,0)};
 
   importFile=function(file){if(!file)return;const chosen=selectedOwner(),reader=new FileReader();reader.onload=async()=>{try{const p=parseCSV(reader.result),union=[...headers];p.h.forEach(h=>{if(!union.includes(h))union.push(h)});headers=union.length?union:p.h;if(typeof guess==='function')guess();const counts=classifyRows(p.rs,chosen),x=mergeRowsWithOwner(p.rs);if(typeof render==='function')render(false);refreshViews();try{await persistRows();const fn=document.getElementById('fn');if(fn)fn.textContent=`${file.name} — dodano ${x.added}, duplikaty: ${x.dup}${x.ownerUpdated?`, zmieniono właściciela: ${x.ownerUpdated}`:''}. W pliku: ${counts.ja} moje, ${counts.mama} Mamy. ZAPISANO trwale. Łącznie: ${rows.length}`;if(typeof updateUnsyncedPanel==='function')updateUnsyncedPanel();if(navigator.onLine&&typeof refreshUser==='function')try{await refreshUser()}catch{}if(x.ownerChangedRows.length&&user)await syncChangedOwnersToCloud(x.ownerChangedRows);if(typeof autoSync==='function')await autoSync('po imporcie CSV');refreshViews()}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent=`Błąd trwałego zapisu: ${e.message}`}}catch(e){const fn=document.getElementById('fn');if(fn)fn.textContent='Błąd importu CSV: '+(e?.message||String(e))}};reader.readAsText(file,'utf-8')};
 
