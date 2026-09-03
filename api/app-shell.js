@@ -36,6 +36,7 @@ export default async function handler(req,res){
       ['store-click-fast.js',2],
       ['store-month-cache.js',2],
       ['store-stats.js',4],
+      ['store-perf.js',1],
       ['nav-recovery.js',3]
     ];
     for(const [name] of managed){
