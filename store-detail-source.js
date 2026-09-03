@@ -6,9 +6,22 @@
     document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',false));
     window.scrollTo({top:0,behavior:'auto'});
   };
+  const prewarmIndex=()=>{
+    let tries=0;
+    const ready=()=>{
+      tries++;
+      const idx=window.PanParagonStoreYearDetail;
+      if((!Array.isArray(rows)||!rows.length||!idx?.rowsForStore)&&tries<100){setTimeout(ready,50);return}
+      if(!Array.isArray(rows)||!rows.length||!idx?.rowsForStore)return;
+      const run=()=>{try{idx.rowsForStore('__ppm_prewarm__')}catch{}};
+      if('requestIdleCallback'in window)requestIdleCallback(run,{timeout:1200});else setTimeout(run,250);
+    };
+    setTimeout(ready,0);
+  };
   const install=()=>{
     const table=document.getElementById('storesTable');
     if(!table)return;
+    prewarmIndex();
     table.addEventListener('click',e=>{
       const tr=e.target.closest?.('tr');
       if(!tr||!table.contains(tr)||tr.rowIndex===0)return;
