@@ -36,10 +36,11 @@
       e.preventDefault();
       e.stopImmediatePropagation();
       if(typeof api.refreshStore==='function'){
-        api.refreshStore(name,detail,allStore);
         const title=document.getElementById('storeDetailTitle');
         if(title)title.textContent=year?`${name} — ${year}`:name;
         showDetail();
+        const run=()=>api.refreshStore(name,detail,allStore);
+        if('requestAnimationFrame'in window)requestAnimationFrame(run);else setTimeout(run,0);
       }else api.openStore(name,detail,allStore);
     },true);
   };
