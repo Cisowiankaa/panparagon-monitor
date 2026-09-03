@@ -2,7 +2,7 @@
   const api=window.PanParagonStoreDetails;
   if(!api||typeof api.refreshStore!=='function')return;
 
-  let currentStore='';
+  let currentStore='',openToken=0;
   const showView=id=>{
     document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
     document.getElementById(id)?.classList.add('on');
@@ -20,18 +20,25 @@
     currentStore=String(name||'');
     const detailRows=Array.isArray(detailSrc)?detailSrc:[];
     const allRows=Array.isArray(allSrc)?allSrc:detailRows;
+    const token=++openToken;
     const title=document.getElementById('storeDetailTitle');
     if(title)title.textContent=currentStore;
 
-    let fastData=null;
-    const capture=e=>{if(e?.detail?.store===currentStore)fastData=e.detail||null};
-    document.addEventListener('panparagon:store-fast-data',capture,{once:true});
-    api.refreshStore(currentStore,detailRows,allRows);
-    if(fastData)renderYears(fastData.years);
-
     showView('storeDetail');
     window.scrollTo({top:0,behavior:'auto'});
-    document.dispatchEvent(new CustomEvent('panparagon:store-detail-updated',{detail:{store:currentStore,year:window.PanParagonStoreFilter?.getYear?.()||''}}));
+
+    const run=()=>{
+      if(token!==openToken)return;
+      let fastData=null;
+      const capture=e=>{if(e?.detail?.store===currentStore)fastData=e.detail||null};
+      document.addEventListener('panparagon:store-fast-data',capture,{once:true});
+      try{api.refreshStore(currentStore,detailRows,allRows)}
+      finally{
+        if(fastData)renderYears(fastData.years);
+        document.dispatchEvent(new CustomEvent('panparagon:store-detail-updated',{detail:{store:currentStore,year:window.PanParagonStoreFilter?.getYear?.()||''}}));
+      }
+    };
+    setTimeout(run,0);
   };
   api.getCurrentStore=()=>currentStore;
 })();
