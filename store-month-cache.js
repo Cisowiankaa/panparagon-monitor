@@ -2,12 +2,12 @@
   const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const localDayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const CHUNK=250;
-  let cacheKey='',monthRows=new Map(),renderToken=0;
+  let cacheKey='',monthRows=new Map(),renderToken=0,warmToken=0;
 
   const currentStore=()=>String(window.PanParagonStoreDetails?.getCurrentStore?.()||document.getElementById('storeDetailTitle')?.textContent||'').replace(/\s—\s\d{4}$/,'').trim();
   const currentYear=()=>document.getElementById('storeDetailYear')?.value||'';
   const version=()=>window.PanParagonMainIndex?.version?.()??0;
-  const invalidate=()=>{cacheKey='';monthRows=new Map();renderToken++};
+  const invalidate=()=>{cacheKey='';monthRows=new Map();renderToken++;warmToken++};
 
   const sourceRows=()=>{
     const name=currentStore(),year=currentYear(),api=window.PanParagonStoreYearDetail;
@@ -69,7 +69,12 @@
     card.style.display='block';card.scrollIntoView({behavior:'smooth',block:'start'});return true;
   };
 
-  const warm=()=>{if(document.getElementById('storeDetail')?.classList.contains('on'))requestAnimationFrame(()=>{try{ensureIndex()}catch{}})};
+  const warm=()=>{
+    if(!document.getElementById('storeDetail')?.classList.contains('on'))return;
+    const token=++warmToken;
+    const run=()=>{if(token!==warmToken||!document.getElementById('storeDetail')?.classList.contains('on'))return;try{ensureIndex()}catch{}};
+    if('requestIdleCallback'in window)requestIdleCallback(run,{timeout:1400});else setTimeout(run,500);
+  };
   const install=()=>{
     const detail=document.getElementById('storeDetail');
     if(detail)detail.addEventListener('click',e=>{
@@ -78,7 +83,7 @@
     },true);
     document.addEventListener('panparagon:store-detail-updated',()=>{invalidate();warm()});
     document.addEventListener('panparagon:data-changed',e=>{if(e?.detail?.reason==='main-render-fast')return;invalidate()});
-    if(detail)new MutationObserver(()=>{if(detail.classList.contains('on'))warm()}).observe(detail,{attributes:true,attributeFilter:['class']});
+    if(detail)new MutationObserver(()=>{if(detail.classList.contains('on'))warm();else warmToken++}).observe(detail,{attributes:true,attributeFilter:['class']});
   };
   window.PanParagonStoreMonthCache={invalidate,warm};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
