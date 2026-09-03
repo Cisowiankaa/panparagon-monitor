@@ -27,6 +27,7 @@ export default async function handler(req,res){
       ['store-details.js',4],
       ['store-list-fast.js',1],
       ['store-fast-refresh.js',5],
+      ['store-open-fast.js',1],
       ['store-sort.js',2],
       ['store-filter.js',3],
       ['store-detail-source.js',1],
