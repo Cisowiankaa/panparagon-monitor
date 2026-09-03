@@ -2,6 +2,7 @@
   let filter='all',query='',sortBy='date-desc',showAll=false;
   const RETRY_KEY='ppm_sync_retry_queue';
   const getRetry=()=>window.PanParagonSyncRetry;
+  const integrationsVisible=()=>!!document.getElementById('integrations')?.classList.contains('on');
   const statusOf=r=>{try{return getRetry()?.get(rowHash(r))?.status||'oczekuje'}catch{return'oczekuje'}};
   const pendingAll=()=>{try{return rows.filter(r=>!cloudHashes.has(rowHash(r)))}catch{return[]}};
   const searchableText=r=>{try{const d=rowDate(r),shop=(r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep',month=d?ml(mk(d)):'';return `${shop} ${month} ${d?mk(d):''} ${statusOf(r)}`.toLocaleLowerCase('pl-PL')}catch{return''}};
@@ -38,6 +39,7 @@
   };
 
   const ensureFilterUI=()=>{
+    if(!integrationsVisible())return;
     const panel=document.getElementById('unsyncedPanel');if(!panel)return;
     let wrap=document.getElementById('syncFilterWrap');
     if(!wrap){
@@ -54,7 +56,7 @@
   };
 
   const paintFilter=()=>{const bar=document.getElementById('syncFilterBar');if(!bar)return;bar.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.dataset.syncFilter===filter);b.style.borderColor=b.dataset.syncFilter===filter?'var(--a)':'var(--l)'})};
-  const updateCounts=()=>{const c=counts();document.querySelectorAll('[data-count]').forEach(el=>{const k=el.dataset.count;el.textContent=`(${c[k]??0})`})};
+  const updateCounts=()=>{if(!integrationsVisible())return;const c=counts();document.querySelectorAll('[data-count]').forEach(el=>{const k=el.dataset.count;el.textContent=`(${c[k]??0})`})};
 
   const retryOne=async hash=>{
     if(!navigator.onLine)return;
@@ -67,6 +69,7 @@
   const details=(h,st)=>st.status==='błąd'?`<details style="grid-column:1/-1;margin-top:4px;padding:8px 10px;border:1px solid var(--l);border-radius:8px;background:#101821"><summary class="badtxt" style="cursor:pointer">Szczegóły błędu</summary><div class="small" style="margin-top:8px"><b>Rekord:</b> ${esc(h)}<br><b>Ostatni błąd:</b> ${esc(st.lastError||'Nieznany błąd')}<br><b>Liczba prób:</b> ${st.attempts||0}<br><button class="retry-one" data-hash="${esc(h)}" style="margin-top:8px">Ponów ten rekord</button></div></details>`:'';
 
   const renderFiltered=()=>{
+    if(!integrationsVisible())return;
     ensureFilterUI();const panel=document.getElementById('unsyncedPanel'),retry=getRetry();if(!panel||!retry)return;
     try{
       updateCounts();
@@ -81,6 +84,13 @@
     }catch(e){panel.textContent='Nie udało się odświeżyć filtra: '+e.message}
   };
 
-  const install=()=>{ensureFilterUI();renderFiltered();window.addEventListener('ppm-sync-state-change',renderFiltered);window.addEventListener('online',renderFiltered);setInterval(renderFiltered,30000)};
+  const install=()=>{
+    window.addEventListener('ppm-sync-state-change',renderFiltered);
+    window.addEventListener('online',renderFiltered);
+    document.querySelectorAll('#nav button[data-v="integrations"]').forEach(b=>b.addEventListener('click',()=>setTimeout(renderFiltered,0)));
+    setInterval(()=>{if(integrationsVisible())renderFiltered()},30000);
+    if(integrationsVisible())renderFiltered();
+  };
+  window.PanParagonSyncFilter={render:renderFiltered,isActive:integrationsVisible};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
