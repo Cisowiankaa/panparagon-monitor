@@ -33,7 +33,7 @@ export default async function handler(req,res){
       ['store-filter.js',3],
       ['store-detail-source.js',1],
       ['store-year-detail.js',16],
-      ['store-click-fast.js',1],
+      ['store-click-fast.js',2],
       ['store-month-cache.js',2],
       ['store-stats.js',4],
       ['nav-recovery.js',3]
