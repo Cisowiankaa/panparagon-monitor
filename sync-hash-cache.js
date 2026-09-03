@@ -1,10 +1,12 @@
 (()=>{
   if(typeof rowHash!=='function'||typeof rowKey!=='function'||typeof mergeRows!=='function'||typeof getUnsyncedRows!=='function'||typeof getCloudOnlyCount!=='function')return;
   const originalRowHash=rowHash,originalRowKey=rowKey;
+  const PREWARM_CHUNK=500;
   let hashCache=new WeakMap(),keyCache=new WeakMap();
   let localRowsRef=null,localLen=-1,localHashes=null,localEntries=null,hashBuckets=null;
   let pendingRowsRef=null,pendingLen=-1,pendingCloudRef=null,pendingCloudSize=-1,pendingRows=null;
   let cloudOnlyRowsRef=null,cloudOnlyLen=-1,cloudOnlyCloudRef=null,cloudOnlyCloudSize=-1,cloudOnlyValue=null;
+  let prewarmToken=0,prewarmScheduled=false,prewarmRunning=false;
 
   const isInternalKey=k=>String(k).startsWith('__ppm_');
   const canonicalRowKey=row=>JSON.stringify(Object.keys(row).filter(k=>!isInternalKey(k)).sort().reduce((o,k)=>(o[k]=String(row[k]??'').trim(),o),{}));
@@ -24,17 +26,55 @@
     pendingRowsRef=null;pendingLen=-1;pendingRows=null;pendingCloudRef=null;pendingCloudSize=-1;
     cloudOnlyRowsRef=null;cloudOnlyLen=-1;cloudOnlyCloudRef=null;cloudOnlyCloudSize=-1;cloudOnlyValue=null;
   };
-  const invalidateAggregates=()=>{localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;hashBuckets=null;resetCloudDerived()};
+  const invalidateAggregates=()=>{prewarmToken++;prewarmScheduled=false;prewarmRunning=false;localRowsRef=null;localLen=-1;localHashes=null;localEntries=null;hashBuckets=null;resetCloudDerived()};
+
+  const commitLocal=(src,hashes,entries,buckets)=>{
+    localRowsRef=src;localLen=src.length;localHashes=hashes;localEntries=entries;hashBuckets=buckets;resetCloudDerived();
+  };
 
   const ensureLocal=()=>{
     const src=Array.isArray(rows)?rows:[];
     if(src===localRowsRef&&src.length===localLen&&localHashes&&localEntries&&hashBuckets)return;
-    localRowsRef=src;localLen=src.length;localHashes=new Set();localEntries=new Array(src.length);hashBuckets=new Map();
+    const hashes=new Set(),entries=new Array(src.length),buckets=new Map();
     for(let i=0;i<src.length;i++){
-      const r=src[i],h=cachedRowHash(r);localHashes.add(h);localEntries[i]=[r,h];
-      const bucket=hashBuckets.get(h);if(bucket)bucket.push(r);else hashBuckets.set(h,[r]);
+      const r=src[i],h=cachedRowHash(r);hashes.add(h);entries[i]=[r,h];
+      const bucket=buckets.get(h);if(bucket)bucket.push(r);else buckets.set(h,[r]);
     }
-    resetCloudDerived();
+    commitLocal(src,hashes,entries,buckets);
+  };
+
+  const schedulePrewarm=()=>{
+    if(prewarmScheduled||prewarmRunning)return;
+    const src=Array.isArray(rows)?rows:[];
+    if(!src.length||src===localRowsRef&&src.length===localLen)return;
+    prewarmScheduled=true;
+    const token=++prewarmToken,ref=src,len=src.length;
+    const start=()=>{
+      prewarmScheduled=false;
+      if(token!==prewarmToken||rows!==ref||ref.length!==len)return;
+      prewarmRunning=true;
+      const hashes=new Set(),entries=new Array(len),buckets=new Map();let offset=0;
+      const step=deadline=>{
+        if(token!==prewarmToken||rows!==ref||ref.length!==len){prewarmRunning=false;return}
+        let processed=0;
+        while(offset<len&&processed<PREWARM_CHUNK&&(!deadline||typeof deadline.timeRemaining!=='function'||deadline.timeRemaining()>1)){
+          const r=ref[offset],h=cachedRowHash(r);hashes.add(h);entries[offset]=[r,h];
+          const bucket=buckets.get(h);if(bucket)bucket.push(r);else buckets.set(h,[r]);
+          offset++;processed++;
+        }
+        if(offset<len){
+          if(typeof requestIdleCallback==='function')requestIdleCallback(step,{timeout:120});
+          else setTimeout(()=>step(null),0);
+          return;
+        }
+        prewarmRunning=false;
+        if(token===prewarmToken&&rows===ref&&ref.length===len)commitLocal(ref,hashes,entries,buckets);
+      };
+      if(typeof requestIdleCallback==='function')requestIdleCallback(step,{timeout:120});
+      else setTimeout(()=>step(null),0);
+    };
+    if(typeof requestIdleCallback==='function')requestIdleCallback(start,{timeout:800});
+    else setTimeout(start,250);
   };
 
   rowHash=cachedRowHash;
@@ -75,9 +115,12 @@
     get:cachedRowHash,
     key:cachedRowKey,
     isInternalKey,
-    invalidate:()=>{hashCache=new WeakMap();keyCache=new WeakMap();invalidateAggregates()},
-    invalidateAggregates,
+    prewarm:schedulePrewarm,
+    invalidate:()=>{hashCache=new WeakMap();keyCache=new WeakMap();invalidateAggregates();schedulePrewarm()},
+    invalidateAggregates:()=>{invalidateAggregates();schedulePrewarm()},
     invalidatePending:resetCloudDerived
   };
-  document.addEventListener('panparagon:data-changed',invalidateAggregates);
+  document.addEventListener('panparagon:data-changed',()=>{invalidateAggregates();schedulePrewarm()});
+  window.addEventListener('load',()=>setTimeout(schedulePrewarm,0),{once:true});
+  setTimeout(schedulePrewarm,600);
 })();
