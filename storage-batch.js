@@ -13,7 +13,17 @@
   const originalPersist=persistRows;
   const originalDbGet=typeof dbGet==='function'?dbGet:null;
   const setText=(id,text)=>{try{const el=document.getElementById(id);if(el)el.textContent=text}catch{}};
-  let readPromise=null,readCache=null;
+  let readPromise=null,readCache=null,firstReadPaint=null;
+
+  const waitForFirstPaint=()=>{
+    if(firstReadPaint)return firstReadPaint;
+    firstReadPaint=new Promise(resolve=>{
+      const afterFrame=()=>setTimeout(resolve,0);
+      if(typeof requestAnimationFrame==='function')requestAnimationFrame(afterFrame);
+      else setTimeout(resolve,0);
+    });
+    return firstReadPaint;
+  };
 
   const requestPersistentStorage=async()=>{
     try{
@@ -24,7 +34,9 @@
     }catch{return false}
   };
 
-  const readState=()=>{
+  const readState=async()=>{
+    if(readPromise)return readPromise;
+    await waitForFirstPaint();
     if(readPromise)return readPromise;
     if(!db||typeof db.transaction!=='function')return Promise.reject(new Error('Brak IndexedDB'));
     readPromise=new Promise((resolve,reject)=>{
@@ -84,7 +96,7 @@
     }
   };
 
-  window.PanParagonStorageBatch={enabled:true,readBatch:true,persistent:false,requestPersistentStorage};
+  window.PanParagonStorageBatch={enabled:true,readBatch:true,firstPaintGate:true,persistent:false,requestPersistentStorage};
   requestPersistentStorage().then(granted=>{
     window.PanParagonStorageBatch.persistent=granted;
   });
