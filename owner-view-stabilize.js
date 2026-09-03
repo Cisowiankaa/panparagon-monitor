@@ -66,36 +66,21 @@
   };
 
   const install=()=>{
-    const baseRender=typeof render==='function'?render:null;
-    if(baseRender){
-      render=function(...args){
-        const out=baseRender.apply(this,args);
-        refresh();
-        return out;
-      };
-    }
-
     const baseAuto=typeof autoSync==='function'?autoSync:null;
     if(baseAuto){
       autoSync=async function(...args){
         const out=await baseAuto.apply(this,args);
         await reconcile();
-        refresh();
         return out;
       };
     }
 
-    document.getElementById('month')?.addEventListener('change',refresh);
-    document.addEventListener('panparagon:data-changed',()=>queueMicrotask(refresh));
-
     let tries=0;
     const ready=async()=>{
+      if(localStorage.getItem(LOCAL_KEY)==='done')return;
       tries++;
       if((!Array.isArray(rows)||!rows.length)&&tries<100){setTimeout(ready,50);return}
-      if(Array.isArray(rows)&&rows.length){
-        await reconcileLocal();
-        refresh();
-      }
+      if(Array.isArray(rows)&&rows.length)await reconcileLocal();
     };
     setTimeout(ready,0);
   };
