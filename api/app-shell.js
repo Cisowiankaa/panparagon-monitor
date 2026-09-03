@@ -20,6 +20,7 @@ export default async function handler(req,res){
       ['data-event-compat.js',1],
       ['main-render-fast.js',10],
       ['owner-import.js',15],
+      ['owner-count-fast.js',1],
       ['owner-backup-restore.js',2],
       ['sync-fetch-reuse.js',6],
       ['owner-view-stabilize.js',4],
