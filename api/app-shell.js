@@ -35,6 +35,7 @@ export default async function handler(req,res){
       ['store-year-detail.js',16],
       ['store-click-fast.js',4],
       ['store-click-index.js',2],
+      ['dashboard-store-click.js',1],
       ['store-detail-async.js',2],
       ['store-month-cache.js',4],
       ['store-stats-prefeed.js',1],
