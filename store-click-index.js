@@ -40,27 +40,12 @@
     if(!matches())reset();
     const key=String(name||'');
     if(ready)return index.get(key)||[];
-    const fast=window.PanParagonStoreClickFast;
-    const baseSync=fast?.__baseRowsForStore;
-    if(typeof baseSync==='function'){
-      try{
-        const cached=baseSync(name);
-        if(Array.isArray(cached)&&cached.length)return cached;
-      }catch{}
-    }
-    const fallback=fast?.__baseRowsForStoreAsync;
-    if(typeof fallback==='function'){
-      try{return await fallback(name)}catch{}
-    }
     await build();
     return ready?index.get(key)||[]:[];
   };
   const rowsForStore=name=>{
     if(!matches())reset();
-    if(ready)return index.get(String(name||''))||[];
-    const fast=window.PanParagonStoreClickFast;
-    if(fast&&typeof fast.__baseRowsForStore==='function')return fast.__baseRowsForStore(name);
-    return [];
+    return ready?index.get(String(name||''))||[]:[];
   };
 
   const install=()=>{
