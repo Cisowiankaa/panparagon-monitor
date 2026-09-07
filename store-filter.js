@@ -1,6 +1,6 @@
 // deployment marker: indexed store year filters + windowed list + deferred nav render
 (()=>{
-  const PAGE=250;
+  const PAGE=100;
   let query='',year='',shown=PAGE,lastList=[],lastTotal=0,navRaf=0;
   const index=()=>window.PanParagonMainIndex?.get?.()||null;
   const availableYears=()=>{
