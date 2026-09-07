@@ -1,5 +1,7 @@
 (()=>{
   const api=window.PanParagonStoreYearDetail;if(!api)return;
+  const baseRowsForStore=typeof api.rowsForStore==='function'?api.rowsForStore.bind(api):null;
+  const baseRowsForYear=typeof api.rowsForYear==='function'?api.rowsForYear.bind(api):null;
   const CHUNK=1000,INTERACTIVE_CHUNK=2500;
   const cache=new Map(),yearCache=new Map(),statsCache=new Map(),interactivePending=new Map();
   let source=null,sourceLen=-1,sourceStoreCol='',sourceDateCol='',generation=0,prewarming=false,prewarmed=false,waiters=[];
@@ -27,10 +29,20 @@
     stats.months[k]=(stats.months[k]||0)+1;
     stats.years[y]=(stats.years[y]||0)+1;
   };
+  const statsFromList=list=>{const stats=makeStats();for(const r of list||[])addStats(stats,r);return stats};
+  const cachedBaseStore=key=>{
+    if(!baseRowsForStore)return null;
+    try{
+      const out=baseRowsForStore(key);
+      return Array.isArray(out)?out:null;
+    }catch{return null}
+  };
 
   const rowsForStore=name=>{
     const src=ensureSource(),key=String(name||'');
     if(cache.has(key))return cache.get(key);
+    const base=cachedBaseStore(key);
+    if(base){cache.set(key,base);statsCache.set(key,statsFromList(base));return base}
     const out=[],stats=makeStats();
     for(const r of src){if(storeName(r)===key){out.push(r);addStats(stats,r)}}
     cache.set(key,out);statsCache.set(key,stats);
@@ -39,6 +51,8 @@
   const rowsForStoreAsync=name=>{
     const src=ensureSource(),key=String(name||'');
     if(cache.has(key))return Promise.resolve(cache.get(key));
+    const base=cachedBaseStore(key);
+    if(base){cache.set(key,base);statsCache.set(key,statsFromList(base));return Promise.resolve(base)}
     if(interactivePending.has(key))return interactivePending.get(key);
     const gen=generation,out=[],stats=makeStats();let i=0;
     const promise=new Promise(resolve=>{
@@ -67,6 +81,12 @@
     ensureSource();
     const n=String(name||''),y=String(year||''),key=`${n}|${y}`;
     if(yearCache.has(key))return yearCache.get(key);
+    if(baseRowsForYear){
+      try{
+        const base=baseRowsForYear(y,n);
+        if(Array.isArray(base)){yearCache.set(key,base);return base}
+      }catch{}
+    }
     const out=[];
     for(const r of rowsForStore(n)){
       const d=cachedDate(r);
@@ -79,7 +99,8 @@
     ensureSource();
     const key=String(name||'');
     if(statsCache.has(key))return statsCache.get(key);
-    rowsForStore(key);
+    const list=rowsForStore(key);
+    if(!statsCache.has(key))statsCache.set(key,statsFromList(list));
     return statsCache.get(key)||makeStats();
   };
 
