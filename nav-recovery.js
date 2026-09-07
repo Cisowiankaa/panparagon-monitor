@@ -7,7 +7,11 @@
     document.querySelectorAll('#nav button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===id));
     try{
       if(id==='months')window.PanParagonOwners?.refreshViews?.();
-      if(id==='stores')window.PanParagonStoreFilter?.render?.();
+      if(id==='stores'){
+        const q=document.getElementById('storeSearch')?.value?.trim()||'';
+        const y=document.getElementById('storeYear')?.value||'';
+        if(q||y)window.PanParagonStoreFilter?.render?.();
+      }
       if(id==='integrations'&&typeof user!=='undefined'&&user&&typeof runDiagnostics==='function')runDiagnostics(true);
     }catch(e){console.warn('View refresh fallback',e)}
     return true;
