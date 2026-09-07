@@ -2,12 +2,12 @@
   const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const localDayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const CHUNK=250;
-  let cacheKey='',monthRows=new Map(),renderToken=0,warmToken=0,amountKeyCache='';
+  let cacheKey='',monthRows=new Map(),sortedMonths=new Set(),renderToken=0,warmToken=0,amountKeyCache='';
 
   const currentStore=()=>String(window.PanParagonStoreDetails?.getCurrentStore?.()||document.getElementById('storeDetailTitle')?.textContent||'').replace(/\s—\s\d{4}$/,'').trim();
   const currentYear=()=>document.getElementById('storeDetailYear')?.value||'';
   const version=()=>window.PanParagonMainIndex?.version?.()??0;
-  const invalidate=()=>{cacheKey='';monthRows=new Map();renderToken++;warmToken++;amountKeyCache=''};
+  const invalidate=()=>{cacheKey='';monthRows=new Map();sortedMonths=new Set();renderToken++;warmToken++;amountKeyCache=''};
 
   const sourceRows=()=>{
     const name=currentStore(),year=currentYear(),api=window.PanParagonStoreYearDetail;
@@ -26,8 +26,7 @@
       let list=next.get(k);if(!list){list=[];next.set(k,list)}
       list.push(r);
     }
-    for(const list of next.values())list.sort((a,b)=>(cachedDate(a)?.getTime()||0)-(cachedDate(b)?.getTime()||0));
-    monthRows=next;cacheKey=key;
+    monthRows=next;sortedMonths=new Set();cacheKey=key;
     return monthRows;
   };
 
@@ -85,7 +84,9 @@
   };
 
   const showMonth=(key)=>{
-    const token=++renderToken,name=currentStore(),list=ensureIndex().get(key)||[],days={};
+    const token=++renderToken,name=currentStore(),index=ensureIndex();let list=index.get(key)||[];
+    if(list.length>1&&!sortedMonths.has(key)){list.sort((a,b)=>(cachedDate(a)?.getTime()||0)-(cachedDate(b)?.getTime()||0));sortedMonths.add(key)}
+    const days={};
     for(const r of list){const d=cachedDate(r);if(!d)continue;const dk=localDayKey(d);days[dk]=(days[dk]||0)+1}
     const de=Object.entries(days).sort((a,b)=>a[0].localeCompare(b[0])),best=[...de].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0],card=document.getElementById('storeReceiptCard');
     if(!card)return false;
