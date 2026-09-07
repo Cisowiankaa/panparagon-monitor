@@ -1,7 +1,7 @@
-// deployment marker: indexed store year filters + windowed list
+// deployment marker: indexed store year filters + windowed list + deferred nav render
 (()=>{
   const PAGE=250;
-  let query='',year='',shown=PAGE,lastList=[],lastTotal=0;
+  let query='',year='',shown=PAGE,lastList=[],lastTotal=0,navRaf=0;
   const index=()=>window.PanParagonMainIndex?.get?.()||null;
   const availableYears=()=>{
     const data=index();
@@ -25,15 +25,18 @@
     s.innerHTML='<option value="">Wszystkie lata</option>'+list.map(y=>`<option value="${y}">${y}</option>`).join('');
     if(old&&list.includes(old))s.value=old;else if(old)year='';
   };
-  const storeCounts=()=>{
-    const data=index();if(!data)return {};
-    if(!year)return data.allStores||{};
+  const storeEntries=()=>{
+    const data=index();if(!data)return [];
+    if(!year){
+      if(Array.isArray(data.ae))return data.ae;
+      return Object.entries(data.allStores||{}).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
+    }
     const out={};
     for(const [month,bucket] of Object.entries(data.monthStores||{})){
       if(!month.startsWith(year+'-'))continue;
       for(const [name,count] of Object.entries(bucket||{}))out[name]=(out[name]||0)+count;
     }
-    return out;
+    return Object.entries(out).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
   };
   const renderRows=()=>{
     const box=document.getElementById('storesTable');if(!box)return;
@@ -49,10 +52,8 @@
   };
   const renderFiltered=()=>{
     ensureControls();refreshYears();
-    const counts=storeCounts();
-    lastList=Object.entries(counts)
-      .filter(([name])=>!query||name.toLocaleLowerCase('pl').includes(query))
-      .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
+    const base=storeEntries();
+    lastList=query?base.filter(([name])=>name.toLocaleLowerCase('pl').includes(query)):base;
     lastTotal=lastList.reduce((s,x)=>s+x[1],0);
     renderRows();updateInfo();
   };
@@ -65,12 +66,16 @@
     if(opts.notify!==false)document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}));
     return year;
   };
+  const scheduleNavRender=()=>{
+    cancelAnimationFrame(navRaf);
+    navRaf=requestAnimationFrame(()=>{shown=PAGE;renderFiltered()});
+  };
   const install=()=>{
     ensureControls();
     if(document.getElementById('stores')?.classList.contains('on'))renderFiltered();
     document.addEventListener('click',e=>{
-      if(e.target.closest?.('#nav button[data-v="stores"]')){shown=PAGE;renderFiltered()}
-    },true);
+      if(e.target.closest?.('#nav button[data-v="stores"]'))scheduleNavRender();
+    });
     document.addEventListener('panparagon:data-changed',e=>{
       if(e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast')return;
       refreshYears();
