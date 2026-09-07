@@ -24,13 +24,10 @@
       const token=++openToken,year=window.PanParagonStoreFilter?.getYear?.()||'',title=document.getElementById('storeDetailTitle');
       if(title)title.textContent=`${name} — ładowanie…`;
       showDetail();
-      if(fast?.whenReady&&!fast.isPrewarmed?.()){
-        let ok=await fast.whenReady();
-        if(!ok&&token===openToken)await fast.whenReady();
-      }
-      if(token!==openToken)return;
-      const allStore=idx.rowsForStore(name);
-      if(!Array.isArray(allStore))return;
+      let allStore;
+      if(fast?.rowsForStoreAsync)allStore=await fast.rowsForStoreAsync(name);
+      else allStore=idx.rowsForStore(name);
+      if(token!==openToken||!Array.isArray(allStore))return;
       const detail=year&&idx.rowsForYear?idx.rowsForYear(year,name):allStore;
       if(title)title.textContent=year?`${name} — ${year}`:name;
       if(typeof api.refreshStore==='function')requestAnimationFrame(()=>{if(token===openToken)api.refreshStore(name,detail,allStore)});
