@@ -2,14 +2,17 @@
   const api=window.PanParagonStoreYearDetail;if(!api)return;
   const CHUNK=1000;
   const cache=new Map(),yearCache=new Map(),statsCache=new Map();
-  let source=null,sourceLen=-1,sourceStoreCol='',sourceDateCol='',generation=0,prewarming=false,prewarmed=false;
+  let source=null,sourceLen=-1,sourceStoreCol='',sourceDateCol='',generation=0,prewarming=false,prewarmed=false,waiters=[];
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const currentSignature=()=>({src:Array.isArray(rows)?rows:[],sc:String(typeof storeCol!=='undefined'?storeCol:''),dc:String(typeof dateCol!=='undefined'?dateCol:'')});
+  const settleWaiters=(gen,ok)=>{const keep=[];for(const w of waiters){if(w.gen===gen)w.resolve(ok);else keep.push(w)}waiters=keep};
   const resetTo=(src,sc,dc)=>{
+    const oldGen=generation;
     source=src;sourceLen=src.length;sourceStoreCol=sc;sourceDateCol=dc;
     cache.clear();yearCache.clear();statsCache.clear();generation++;prewarming=false;prewarmed=false;
+    settleWaiters(oldGen,false);
   };
   const ensureSource=()=>{
     const {src,sc,dc}=currentSignature();
@@ -54,7 +57,7 @@
   };
 
   const schedule=fn=>{
-    if('requestIdleCallback'in window)requestIdleCallback(fn);
+    if('requestIdleCallback'in window)requestIdleCallback(fn,{timeout:500});
     else setTimeout(fn,16);
   };
   const prewarm=()=>{
@@ -63,7 +66,7 @@
     prewarming=true;
     const gen=generation,built=new Map(),builtStats=new Map();let i=0;
     const step=()=>{
-      if(gen!==generation||src!==source){prewarming=false;return}
+      if(gen!==generation||src!==source){prewarming=false;settleWaiters(gen,false);return}
       const end=Math.min(i+CHUNK,src.length);
       for(;i<end;i++){
         const r=src[i],name=storeName(r);
@@ -75,9 +78,16 @@
       if(i<src.length){schedule(step);return}
       for(const [name,list] of built)if(!cache.has(name))cache.set(name,list);
       for(const [name,stats] of builtStats)if(!statsCache.has(name))statsCache.set(name,stats);
-      prewarming=false;prewarmed=true;
+      prewarming=false;prewarmed=true;settleWaiters(gen,true);
     };
     schedule(step);
+  };
+  const whenReady=()=>{
+    ensureSource();
+    if(prewarmed)return Promise.resolve(true);
+    prewarm();
+    const gen=generation;
+    return new Promise(resolve=>waiters.push({gen,resolve}));
   };
 
   const clear=()=>{const {src,sc,dc}=currentSignature();resetTo(src,sc,dc)};
@@ -91,7 +101,7 @@
     clear();prewarm();
   });
 
-  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForYear,statsForStore,prewarm,isPrewarmed:()=>prewarmed};
+  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForYear,statsForStore,prewarm,whenReady,isPrewarmed:()=>prewarmed};
   let tries=0;
   const ready=()=>{
     tries++;
