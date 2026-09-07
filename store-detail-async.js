@@ -1,5 +1,6 @@
 (()=>{
   let openToken=0;
+  const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
   const showDetail=()=>{
     document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
     const detail=document.getElementById('storeDetail');
@@ -24,6 +25,8 @@
       const token=++openToken,year=window.PanParagonStoreFilter?.getYear?.()||'',title=document.getElementById('storeDetailTitle');
       if(title)title.textContent=`${name} — ładowanie…`;
       showDetail();
+      await nextPaint();
+      if(token!==openToken)return;
       let allStore;
       if(fast?.rowsForStoreAsync)allStore=await fast.rowsForStoreAsync(name);
       else allStore=idx.rowsForStore(name);
