@@ -5,38 +5,35 @@
   const storesTable=()=>document.getElementById('storesTable');
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const cachedRowDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
-  const rebuildIndex=src=>{
-    yearRowsCache.clear();yearsCache.clear();storeRowsCache.clear();
-    for(const r of src){
-      try{
-        const name=storeName(r),d=cachedRowDate(r),year=d?String(d.getFullYear()):'';
-        if(!storeRowsCache.has(name))storeRowsCache.set(name,[]);
-        storeRowsCache.get(name).push(r);
-        if(year){
-          const key=`${name}|${year}`;
-          if(!yearRowsCache.has(key))yearRowsCache.set(key,[]);
-          yearRowsCache.get(key).push(r);
-          if(!yearsCache.has(name))yearsCache.set(name,new Set());
-          yearsCache.get(name).add(Number(year));
-        }
-      }catch{}
-    }
-  };
   const rememberFullRows=src=>{
     if(!Array.isArray(src))return;
     const dc=String(dateCol||''),sc=String(storeCol||'');
     const sourceChanged=src!==fullRowsCache,sizeChanged=src.length!==cacheSize,mappingChanged=dc!==indexedDateCol||sc!==indexedStoreCol;
     if(!sourceChanged&&!sizeChanged&&!mappingChanged)return;
-    fullRowsCache=src;cacheSize=src.length;indexedDateCol=dc;indexedStoreCol=sc;rebuildIndex(src);
+    fullRowsCache=src;cacheSize=src.length;indexedDateCol=dc;indexedStoreCol=sc;
+    yearRowsCache.clear();yearsCache.clear();storeRowsCache.clear();
   };
   const invalidate=()=>{
     yearRowsCache.clear();yearsCache.clear();storeRowsCache.clear();
     fullRowsCache=[];cacheSize=-1;indexedDateCol='';indexedStoreCol='';
-    if(Array.isArray(rows))rememberFullRows(rows);
   };
   const fullRows=()=>fullRowsCache.length?fullRowsCache:(Array.isArray(rows)?rows:[]);
-  const rowsForYear=(all,year,name=lastStore||baseStoreName())=>{const key=`${name}|${year}`;if(yearRowsCache.has(key))return yearRowsCache.get(key);const out=[];for(const r of all){try{if(name&&storeName(r)!==name)continue;const d=cachedRowDate(r);if(d&&String(d.getFullYear())===String(year))out.push(r)}catch{}}yearRowsCache.set(key,out);return out};
-  const rowsForStore=(name=lastStore||baseStoreName())=>{if(Array.isArray(rows))rememberFullRows(rows);return storeRowsCache.get(name)||[]};
+  const rowsForStore=(name=lastStore||baseStoreName())=>{
+    if(Array.isArray(rows))rememberFullRows(rows);
+    if(storeRowsCache.has(name))return storeRowsCache.get(name);
+    const out=[];
+    for(const r of fullRows()){
+      try{if(storeName(r)===name)out.push(r)}catch{}
+    }
+    storeRowsCache.set(name,out);
+    return out;
+  };
+  const rowsForYear=(all,year,name=lastStore||baseStoreName())=>{
+    const key=`${name}|${year}`;if(yearRowsCache.has(key))return yearRowsCache.get(key);
+    const src=name?rowsForStore(name):(Array.isArray(all)?all:fullRows()),out=[];
+    for(const r of src){try{const d=cachedRowDate(r);if(d&&String(d.getFullYear())===String(year))out.push(r)}catch{}}
+    yearRowsCache.set(key,out);return out;
+  };
   const baseStoreName=()=>{const title=document.getElementById('storeDetailTitle');return (title?.textContent||'').replace(/\s—\s\d{4}$/,'').trim()};
   const availableYears=()=>{const name=lastStore||baseStoreName(),cached=yearsCache.get(name);if(cached)return [...cached].sort((a,b)=>b-a);const set=new Set();for(const r of rowsForStore(name)){try{const y=cachedRowDate(r)?.getFullYear();if(y)set.add(y)}catch{}}const out=[...set].sort((a,b)=>b-a);yearsCache.set(name,new Set(out));return out};
   const yearProgressCount=year=>{const ys=availableYears();if(!year)return ys.length;const y=Number(year);return ys.filter(v=>Number(v)<=y).length};
@@ -48,10 +45,10 @@
   const syncMainYear=year=>{const api=window.PanParagonStoreFilter;if(api?.setYear){api.setYear(year,{render:false,notify:false});return}const mainYear=document.getElementById('storeYear');if(mainYear)mainYear.value=year};
   const notify=()=>document.dispatchEvent(new CustomEvent('panparagon:store-detail-updated',{detail:{store:lastStore,year:document.getElementById('storeDetailYear')?.value||''}}));
   const markDetailYear=year=>{const title=document.getElementById('storeDetailTitle'),sub=title?.parentElement?.querySelector('.sub'),yearCount=document.getElementById('storeYearCount');if(title){const base=title.textContent.replace(/\s—\s\d{4}$/,'');title.textContent=year?base+' — '+year:base}if(sub)sub.textContent=year?`Widok ograniczony do roku ${year}. Kliknij miesiąc, aby zobaczyć paragony z tego okresu.`:'Kliknij miesiąc, aby zobaczyć wszystkie paragony z tego okresu.';if(yearCount)yearCount.textContent=yearProgressCount(year);setYearHistoryLabel(year);syncDetailSelector(year);wireYearRows();notify()};
-  const switchDetailYear=year=>{const name=lastStore||baseStoreName();if(!name)return;lastStore=name;if(Array.isArray(rows))rememberFullRows(rows);const allStore=rowsForStore(name),detail=year?rowsForYear(fullRows(),year,name):allStore,api=window.PanParagonStoreDetails,sx=window.scrollX,sy=window.scrollY;if(api){if(typeof api.refreshStore==='function')api.refreshStore(name,detail,allStore);else if(typeof api.openStore==='function')api.openStore(name,detail,allStore);window.scrollTo({left:sx,top:sy,behavior:'auto'});markDetailYear(year)}syncMainYear(year)};
+  const switchDetailYear=year=>{const name=lastStore||baseStoreName();if(!name)return;lastStore=name;if(Array.isArray(rows))rememberFullRows(rows);const allStore=rowsForStore(name),detail=year?rowsForYear(allStore,year,name):allStore,api=window.PanParagonStoreDetails,sx=window.scrollX,sy=window.scrollY;if(api){if(typeof api.refreshStore==='function')api.refreshStore(name,detail,allStore);else if(typeof api.openStore==='function')api.openStore(name,detail,allStore);window.scrollTo({left:sx,top:sy,behavior:'auto'});markDetailYear(year)}syncMainYear(year)};
   const wireYearRows=()=>{const box=document.getElementById('storeYearTable');if(!box)return;box.querySelectorAll('table tr').forEach((tr,i)=>{if(i===0||tr.dataset.yearWired)return;const first=tr.querySelector('td'),year=(first?.textContent||'').trim();if(!/^\d{4}$/.test(year))return;tr.dataset.yearWired='1';tr.style.cursor='pointer';tr.title=`Pokaż tylko rok ${year}`;if(first)first.innerHTML=`<button type="button" style="padding:0;border:0;background:transparent;color:var(--a);font-weight:800;cursor:pointer">${year}</button>`;tr.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();switchDetailYear(year)})})};
-  const onCapture=e=>{const table=storesTable();if(!table||!table.contains(e.target))return;const tr=e.target.closest('tr');if(!tr||tr.rowIndex===0)return;const name=(tr.querySelectorAll('td')[1]?.textContent||'').trim();if(name)lastStore=name;if(Array.isArray(rows))rememberFullRows(rows);const year=selectedYear();if(!year)return;const allStore=rowsForStore(name),api=window.PanParagonStoreDetails;setTimeout(()=>{if(api){if(typeof api.refreshStore==='function')api.refreshStore(name,rowsForYear(fullRows(),year,name),allStore);else if(typeof api.openStore==='function')api.openStore(name,rowsForYear(fullRows(),year,name),allStore)}markDetailYear(year)},0)};
-  const install=()=>{if(Array.isArray(rows))rememberFullRows(rows);const table=storesTable();if(table)table.addEventListener('click',onCapture,true);const detail=document.getElementById('storeDetail');if(detail)new MutationObserver(()=>{if(detail.classList.contains('on')){ensureDetailSelector();wireYearRows();setYearHistoryLabel(document.getElementById('storeDetailYear')?.value||'')}}).observe(detail,{attributes:true,attributeFilter:['class']});const yearTable=document.getElementById('storeYearTable');if(yearTable)new MutationObserver(wireYearRows).observe(yearTable,{childList:true,subtree:true});document.addEventListener('panparagon:data-changed',e=>{if(e?.detail?.source==='main-render-fast')return;invalidate()});ensureDetailSelector();wireYearRows();setYearHistoryLabel('')};
-  window.PanParagonStoreYearDetail={invalidate,rowsForStore,rowsForYear:(year,name)=>rowsForYear(fullRows(),year,name)};
+  const onCapture=e=>{const table=storesTable();if(!table||!table.contains(e.target))return;const tr=e.target.closest('tr');if(!tr||tr.rowIndex===0)return;const name=(tr.querySelectorAll('td')[1]?.textContent||'').trim();if(name)lastStore=name;if(Array.isArray(rows))rememberFullRows(rows);const year=selectedYear();if(!year)return;const allStore=rowsForStore(name),api=window.PanParagonStoreDetails;setTimeout(()=>{if(api){if(typeof api.refreshStore==='function')api.refreshStore(name,rowsForYear(allStore,year,name),allStore);else if(typeof api.openStore==='function')api.openStore(name,rowsForYear(allStore,year,name),allStore)}markDetailYear(year)},0)};
+  const install=()=>{if(Array.isArray(rows))rememberFullRows(rows);const table=storesTable();if(table)table.addEventListener('click',onCapture,true);const detail=document.getElementById('storeDetail');if(detail)new MutationObserver(()=>{if(detail.classList.contains('on')){ensureDetailSelector();wireYearRows();setYearHistoryLabel(document.getElementById('storeDetailYear')?.value||'')}}).observe(detail,{attributes:true,attributeFilter:['class']});const yearTable=document.getElementById('storeYearTable');if(yearTable)new MutationObserver(wireYearRows).observe(yearTable,{childList:true,subtree:true});document.addEventListener('panparagon:data-changed',e=>{if(e?.detail?.source==='main-render-fast'||e?.detail?.reason==='main-render-fast')return;invalidate()});ensureDetailSelector();wireYearRows();setYearHistoryLabel('')};
+  window.PanParagonStoreYearDetail={invalidate,rowsForStore,rowsForYear:(year,name)=>rowsForYear(rowsForStore(name),year,name)};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
