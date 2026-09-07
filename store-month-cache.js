@@ -101,21 +101,15 @@
     card.style.display='block';card.scrollIntoView({behavior:'smooth',block:'start'});return true;
   };
 
-  const warm=()=>{
-    if(!document.getElementById('storeDetail')?.classList.contains('on'))return;
-    const token=++warmToken;
-    const run=()=>{if(token!==warmToken||!document.getElementById('storeDetail')?.classList.contains('on'))return;try{ensureIndex()}catch{}};
-    if('requestIdleCallback'in window)requestIdleCallback(run,{timeout:1400});else setTimeout(run,500);
-  };
+  const warm=()=>false;
   const install=()=>{
     const detail=document.getElementById('storeDetail');
     if(detail)detail.addEventListener('click',e=>{
       const tr=e.target.closest?.('#storeMonthTable tr[data-month]');if(!tr||!detail.contains(tr))return;
       if(showMonth(tr.dataset.month)){e.preventDefault();e.stopImmediatePropagation()}
     },true);
-    document.addEventListener('panparagon:store-detail-updated',()=>{invalidate();warm()});
+    document.addEventListener('panparagon:store-detail-updated',invalidate);
     document.addEventListener('panparagon:data-changed',e=>{if(e?.detail?.reason==='main-render-fast')return;invalidate()});
-    if(detail)new MutationObserver(()=>{if(detail.classList.contains('on'))warm();else warmToken++}).observe(detail,{attributes:true,attributeFilter:['class']});
   };
   window.PanParagonStoreMonthCache={invalidate,warm};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
