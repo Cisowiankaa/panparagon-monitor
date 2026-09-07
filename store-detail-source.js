@@ -6,6 +6,7 @@
     document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',false));
     window.scrollTo({top:0,behavior:'auto'});
   };
+  let openToken=0;
   const install=()=>{
     const table=document.getElementById('storesTable');
     if(!table)return;
@@ -14,21 +15,37 @@
       if(!tr||!table.contains(tr)||tr.rowIndex===0)return;
       const cells=tr.querySelectorAll('td');
       const name=(cells[1]?.textContent||'').trim();
-      const api=window.PanParagonStoreDetails,idx=window.PanParagonStoreYearDetail;
-      if(!name||!idx?.rowsForStore||(!api?.refreshStore&&!api?.openStore))return;
-      const allStore=idx.rowsForStore(name);
-      if(!Array.isArray(allStore))return;
-      const year=window.PanParagonStoreFilter?.getYear?.()||'';
-      const detail=year&&idx.rowsForYear?idx.rowsForYear(year,name):allStore;
+      const api=window.PanParagonStoreDetails,idx=window.PanParagonStoreYearDetail,fast=window.PanParagonStoreClickFast;
+      if(!name||(!api?.refreshStore&&!api?.openStore))return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      if(typeof api.refreshStore==='function'){
-        const title=document.getElementById('storeDetailTitle');
-        if(title)title.textContent=year?`${name} — ${year}`:name;
-        showDetail();
-        const run=()=>api.refreshStore(name,detail,allStore);
+      const token=++openToken,year=window.PanParagonStoreFilter?.getYear?.()||'';
+      const title=document.getElementById('storeDetailTitle');
+      if(title)title.textContent=year?`${name} — ${year}`:name;
+      showDetail();
+      const load=async()=>{
+        let allStore=null;
+        try{
+          if(typeof fast?.rowsForStoreAsync==='function')allStore=await fast.rowsForStoreAsync(name);
+          else if(typeof fast?.rowsForStore==='function')allStore=fast.rowsForStore(name);
+          else if(typeof idx?.rowsForStore==='function')allStore=idx.rowsForStore(name);
+        }catch{}
+        if(token!==openToken||!Array.isArray(allStore))return;
+        let detail=allStore;
+        if(year){
+          try{
+            if(typeof fast?.rowsForYear==='function')detail=fast.rowsForYear(year,name);
+            else if(typeof idx?.rowsForYear==='function')detail=idx.rowsForYear(year,name);
+          }catch{detail=allStore}
+        }
+        const run=()=>{
+          if(token!==openToken)return;
+          if(typeof api.refreshStore==='function')api.refreshStore(name,detail,allStore);
+          else api.openStore(name,detail,allStore);
+        };
         if('requestAnimationFrame'in window)requestAnimationFrame(run);else setTimeout(run,0);
-      }else api.openStore(name,detail,allStore);
+      };
+      load();
     },true);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
