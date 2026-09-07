@@ -1,7 +1,7 @@
 (()=>{
   const api=window.PanParagonStoreYearDetail;if(!api)return;
-  const CHUNK=1000;
-  const cache=new Map(),yearCache=new Map(),statsCache=new Map();
+  const CHUNK=1000,INTERACTIVE_CHUNK=2500;
+  const cache=new Map(),yearCache=new Map(),statsCache=new Map(),interactivePending=new Map();
   let source=null,sourceLen=-1,sourceStoreCol='',sourceDateCol='',generation=0,prewarming=false,prewarmed=false,waiters=[];
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
@@ -11,7 +11,7 @@
   const resetTo=(src,sc,dc)=>{
     const oldGen=generation;
     source=src;sourceLen=src.length;sourceStoreCol=sc;sourceDateCol=dc;
-    cache.clear();yearCache.clear();statsCache.clear();generation++;prewarming=false;prewarmed=false;
+    cache.clear();yearCache.clear();statsCache.clear();interactivePending.clear();generation++;prewarming=false;prewarmed=false;
     settleWaiters(oldGen,false);
   };
   const ensureSource=()=>{
@@ -35,6 +35,33 @@
     for(const r of src){if(storeName(r)===key){out.push(r);addStats(stats,r)}}
     cache.set(key,out);statsCache.set(key,stats);
     return out;
+  };
+  const rowsForStoreAsync=name=>{
+    const src=ensureSource(),key=String(name||'');
+    if(cache.has(key))return Promise.resolve(cache.get(key));
+    if(interactivePending.has(key))return interactivePending.get(key);
+    const gen=generation,out=[],stats=makeStats();let i=0;
+    const promise=new Promise(resolve=>{
+      const step=()=>{
+        if(gen!==generation||src!==source){interactivePending.delete(key);resolve([]);return}
+        const end=Math.min(i+INTERACTIVE_CHUNK,src.length);
+        for(;i<end;i++){
+          const r=src[i];
+          if(storeName(r)===key){out.push(r);addStats(stats,r)}
+        }
+        if(i<src.length){
+          if('requestAnimationFrame'in window)requestAnimationFrame(step);else setTimeout(step,0);
+          return;
+        }
+        if(!cache.has(key))cache.set(key,out);
+        if(!statsCache.has(key))statsCache.set(key,stats);
+        interactivePending.delete(key);
+        resolve(cache.get(key)||out);
+      };
+      step();
+    });
+    interactivePending.set(key,promise);
+    return promise;
   };
   const rowsForYear=(year,name)=>{
     ensureSource();
@@ -101,7 +128,7 @@
     clear();prewarm();
   });
 
-  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForYear,statsForStore,prewarm,whenReady,isPrewarmed:()=>prewarmed};
+  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForStoreAsync,rowsForYear,statsForStore,prewarm,whenReady,isPrewarmed:()=>prewarmed};
   let tries=0;
   const ready=()=>{
     tries++;
