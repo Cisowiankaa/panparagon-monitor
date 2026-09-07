@@ -1,6 +1,7 @@
-// deployment marker: indexed store year filters
+// deployment marker: indexed store year filters + windowed list
 (()=>{
-  let query='',year='';
+  const PAGE=250;
+  let query='',year='',shown=PAGE,lastList=[],lastTotal=0;
   const index=()=>window.PanParagonMainIndex?.get?.()||null;
   const availableYears=()=>{
     const data=index();
@@ -13,9 +14,9 @@
     const box=document.createElement('div');box.className='card';box.style.marginBottom='14px';box.id='storeFilterBar';
     box.innerHTML='<div class="actions"><input id="storeSearch" type="search" placeholder="Szukaj sklepu…" style="min-width:260px;flex:1"><select id="storeYear"><option value="">Wszystkie lata</option></select><button id="storeFilterClear">Wyczyść filtry</button></div><div id="storeFilterInfo" class="small" style="margin-top:9px">Wszystkie sklepy ze wszystkich lat.</div>';
     table.before(box);
-    document.getElementById('storeSearch').addEventListener('input',e=>{query=e.target.value.trim().toLocaleLowerCase('pl');renderFiltered()});
-    document.getElementById('storeYear').addEventListener('change',e=>{year=e.target.value;renderFiltered();document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}))});
-    document.getElementById('storeFilterClear').onclick=()=>{query='';year='';document.getElementById('storeSearch').value='';document.getElementById('storeYear').value='';renderFiltered();document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year:''}}))};
+    document.getElementById('storeSearch').addEventListener('input',e=>{query=e.target.value.trim().toLocaleLowerCase('pl');shown=PAGE;renderFiltered()});
+    document.getElementById('storeYear').addEventListener('change',e=>{year=e.target.value;shown=PAGE;renderFiltered();document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}))});
+    document.getElementById('storeFilterClear').onclick=()=>{query='';year='';shown=PAGE;document.getElementById('storeSearch').value='';document.getElementById('storeYear').value='';renderFiltered();document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year:''}}))};
     refreshYears();
   };
   const refreshYears=()=>{
@@ -34,32 +35,46 @@
     }
     return out;
   };
+  const renderRows=()=>{
+    const box=document.getElementById('storesTable');if(!box)return;
+    if(!lastList.length){box.innerHTML='<div class="empty">Brak sklepów pasujących do filtrów.</div>';return}
+    const visible=lastList.slice(0,shown),more=visible.length<lastList.length;
+    box.innerHTML=`<table><tr><th>#</th><th>Sklep</th><th>Paragony${year?' · '+year:''}</th></tr>${visible.map(([n,c],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td><b>${c}</b></td></tr>`).join('')}</table>${more?`<div style="text-align:center;padding:14px 0 2px"><button id="storeLoadMore">Pokaż więcej (${Math.min(PAGE,lastList.length-visible.length)})</button></div>`:''}`;
+    const btn=document.getElementById('storeLoadMore');if(btn)btn.onclick=()=>{shown+=PAGE;renderRows();updateInfo()};
+  };
+  const updateInfo=()=>{
+    const info=document.getElementById('storeFilterInfo');if(!info)return;
+    const visible=Math.min(shown,lastList.length);
+    info.textContent=`Znaleziono sklepów: ${lastList.length} · pokazano: ${visible} · paragony: ${lastTotal}${year?' · rok '+year:' · wszystkie lata'}${query?' · wyszukiwanie: „'+query+'”':''}.`;
+  };
   const renderFiltered=()=>{
-    ensureControls();refreshYears();const box=document.getElementById('storesTable');if(!box)return;
+    ensureControls();refreshYears();
     const counts=storeCounts();
-    const list=Object.entries(counts)
+    lastList=Object.entries(counts)
       .filter(([name])=>!query||name.toLocaleLowerCase('pl').includes(query))
       .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
-    box.innerHTML=list.length?`<table><tr><th>#</th><th>Sklep</th><th>Paragony${year?' · '+year:''}</th></tr>${list.map(([n,c],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td><b>${c}</b></td></tr>`).join('')}</table>`:'<div class="empty">Brak sklepów pasujących do filtrów.</div>';
-    const total=list.reduce((s,x)=>s+x[1],0),info=document.getElementById('storeFilterInfo');
-    if(info)info.textContent=`Znaleziono sklepów: ${list.length} · paragony: ${total}${year?' · rok '+year:' · wszystkie lata'}${query?' · wyszukiwanie: „'+query+'”':''}.`;
+    lastTotal=lastList.reduce((s,x)=>s+x[1],0);
+    renderRows();updateInfo();
   };
   const setYear=(value,opts={})=>{
     ensureControls();refreshYears();
     const next=String(value||''),s=document.getElementById('storeYear');
     year=s&&[...s.options].some(o=>o.value===next)?next:'';
     if(s)s.value=year;
-    if(opts.render!==false)renderFiltered();
+    if(opts.render!==false){shown=PAGE;renderFiltered()}
     if(opts.notify!==false)document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}));
     return year;
   };
   const install=()=>{
     ensureControls();
     if(document.getElementById('stores')?.classList.contains('on'))renderFiltered();
+    document.addEventListener('click',e=>{
+      if(e.target.closest?.('#nav button[data-v="stores"]')){shown=PAGE;renderFiltered()}
+    },true);
     document.addEventListener('panparagon:data-changed',e=>{
-      if(e?.detail?.reason==='main-render-fast')return;
+      if(e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast')return;
       refreshYears();
-      if(document.getElementById('stores')?.classList.contains('on'))renderFiltered();
+      if(document.getElementById('stores')?.classList.contains('on')){shown=PAGE;renderFiltered()}
     });
   };
   window.PanParagonStoreFilter={getYear:()=>year,setYear,render:renderFiltered,refreshYears};
