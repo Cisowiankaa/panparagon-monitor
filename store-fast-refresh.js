@@ -5,7 +5,17 @@
   const prevYearKey=k=>{const [y,m]=k.split('-');return `${Number(y)-1}-${m}`};
   const localDayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
-  const group=src=>{const months={},years={};let total=0;for(const r of src||[]){total++;const d=cachedDate(r);if(!d)continue;const k=mk(d),y=String(d.getFullYear());months[k]=(months[k]||0)+1;years[y]=(years[y]||0)+1}return{months,years,total}};
+  const groupCache=new WeakMap();
+  const group=src=>{
+    const list=Array.isArray(src)?src:[];
+    const cached=Array.isArray(src)?groupCache.get(src):null;
+    if(cached)return cached;
+    const months={},years={};let total=0;
+    for(const r of list){total++;const d=cachedDate(r);if(!d)continue;const k=mk(d),y=String(d.getFullYear());months[k]=(months[k]||0)+1;years[y]=(years[y]||0)+1}
+    const out={months,years,total};
+    if(Array.isArray(src))groupCache.set(src,out);
+    return out;
+  };
   const prewarmedStats=(name,allRows)=>{try{const fast=window.PanParagonStoreClickFast;if(!fast?.isPrewarmed?.()||typeof fast.statsForStore!=='function')return null;const stats=fast.statsForStore(name);return stats&&stats.total===allRows.length?stats:null}catch{return null}};
   const changeHtml=(now,old,exists)=>{if(!exists)return '<span class="small">—</span>';const d=now-old,p=old?Math.round(d/old*100):null,cls=d>0?'oktxt':d<0?'badtxt':'';return `<span class="${cls}"><b>${d>0?'+':''}${d}</b>${p===null?'':` <span class="small">(${p>0?'+':''}${p}%)</span>`}</span>`};
   const setText=(id,value)=>{const el=document.getElementById(id);if(el&&el.textContent!==String(value))el.textContent=value};
