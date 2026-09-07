@@ -1,7 +1,7 @@
 (()=>{
   const api=window.PanParagonStoreYearDetail;if(!api)return;
   const CHUNK=1000;
-  const cache=new Map(),yearCache=new Map();
+  const cache=new Map(),yearCache=new Map(),statsCache=new Map();
   let source=null,sourceLen=-1,sourceStoreCol='',sourceDateCol='',generation=0,prewarming=false,prewarmed=false;
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
@@ -9,20 +9,28 @@
   const currentSignature=()=>({src:Array.isArray(rows)?rows:[],sc:String(typeof storeCol!=='undefined'?storeCol:''),dc:String(typeof dateCol!=='undefined'?dateCol:'')});
   const resetTo=(src,sc,dc)=>{
     source=src;sourceLen=src.length;sourceStoreCol=sc;sourceDateCol=dc;
-    cache.clear();yearCache.clear();generation++;prewarming=false;prewarmed=false;
+    cache.clear();yearCache.clear();statsCache.clear();generation++;prewarming=false;prewarmed=false;
   };
   const ensureSource=()=>{
     const {src,sc,dc}=currentSignature();
     if(src!==source||src.length!==sourceLen||sc!==sourceStoreCol||dc!==sourceDateCol)resetTo(src,sc,dc);
     return src;
   };
+  const makeStats=()=>({months:{},years:{},total:0});
+  const addStats=(stats,r)=>{
+    stats.total++;
+    const d=cachedDate(r);if(!d)return;
+    const k=mk(d),y=String(d.getFullYear());
+    stats.months[k]=(stats.months[k]||0)+1;
+    stats.years[y]=(stats.years[y]||0)+1;
+  };
 
   const rowsForStore=name=>{
     const src=ensureSource(),key=String(name||'');
     if(cache.has(key))return cache.get(key);
-    const out=[];
-    for(const r of src){if(storeName(r)===key)out.push(r)}
-    cache.set(key,out);
+    const out=[],stats=makeStats();
+    for(const r of src){if(storeName(r)===key){out.push(r);addStats(stats,r)}}
+    cache.set(key,out);statsCache.set(key,stats);
     return out;
   };
   const rowsForYear=(year,name)=>{
@@ -37,6 +45,13 @@
     yearCache.set(key,out);
     return out;
   };
+  const statsForStore=name=>{
+    ensureSource();
+    const key=String(name||'');
+    if(statsCache.has(key))return statsCache.get(key);
+    rowsForStore(key);
+    return statsCache.get(key)||makeStats();
+  };
 
   const schedule=fn=>{
     if('requestIdleCallback'in window)requestIdleCallback(fn);
@@ -46,7 +61,7 @@
     const src=ensureSource();
     if(prewarming||prewarmed||!src.length)return;
     prewarming=true;
-    const gen=generation,built=new Map();let i=0;
+    const gen=generation,built=new Map(),builtStats=new Map();let i=0;
     const step=()=>{
       if(gen!==generation||src!==source){prewarming=false;return}
       const end=Math.min(i+CHUNK,src.length);
@@ -54,9 +69,12 @@
         const r=src[i],name=storeName(r);
         let list=built.get(name);if(!list){list=[];built.set(name,list)}
         list.push(r);
+        let stats=builtStats.get(name);if(!stats){stats=makeStats();builtStats.set(name,stats)}
+        addStats(stats,r);
       }
       if(i<src.length){schedule(step);return}
       for(const [name,list] of built)if(!cache.has(name))cache.set(name,list);
+      for(const [name,stats] of builtStats)if(!statsCache.has(name))statsCache.set(name,stats);
       prewarming=false;prewarmed=true;
     };
     schedule(step);
@@ -73,7 +91,7 @@
     clear();prewarm();
   });
 
-  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForYear,prewarm,isPrewarmed:()=>prewarmed};
+  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForYear,statsForStore,prewarm,isPrewarmed:()=>prewarmed};
   let tries=0;
   const ready=()=>{
     tries++;
