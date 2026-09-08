@@ -10,6 +10,10 @@
     return out;
   };
   document.addEventListener('click',e=>{
+    const table=document.getElementById('storesTable');
+    // Nowa ścieżka store-detail-async przejmuje kliknięcia na aktywnej tabeli.
+    // Recovery ma działać wyłącznie jako fallback, a nie blokować async paint.
+    if(table?.dataset?.asyncStoreDetail==='1')return;
     const tr=e.target?.closest?.('#storesTable tr');
     if(!tr||tr.querySelector('th'))return;
     const cells=tr.querySelectorAll('td');
