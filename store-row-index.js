@@ -32,6 +32,10 @@
     capture(r);
     return out;
   };
+  // Main renderer calls window.rowDate directly. Point it at the indexed cache
+  // wrapper so the store->rows index is populated during the existing date pass
+  // instead of forcing a separate 35k-row scan on the first store click.
+  window.rowDate=dateCache.get;
 
   const ready=()=>{const src=ensureSource();return src.length===0||seenCount>=src.length};
   const rowsForStore=name=>{ensureSource();return ready()?(byStore.get(String(name||''))||[]):null};
