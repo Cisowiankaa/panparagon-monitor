@@ -1,5 +1,5 @@
 (()=>{
-  const LIMIT=100;
+  const LIMIT=60;
   const innerHTMLDesc=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
   const nativeGet=innerHTMLDesc?.get,nativeSet=innerHTMLDesc?.set;
 
