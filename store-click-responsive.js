@@ -16,6 +16,14 @@
     return source;
   };
   const yieldFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+  const cachedBaseRows=key=>{
+    const base=fast.__baseRowsForStore;
+    if(typeof base!=='function')return null;
+    try{
+      const out=base(key);
+      return Array.isArray(out)?out:null;
+    }catch{return null}
+  };
 
   const targeted=async name=>{
     const src=ensureSource(),key=String(name||'');
@@ -24,6 +32,8 @@
       if(Array.isArray(indexed))return indexed;
     }
     if(cache.has(key))return cache.get(key);
+    const base=cachedBaseRows(key);
+    if(base){cache.set(key,base);return base}
     if(pending.has(key))return pending.get(key);
     const gen=generation;
     const job=(async()=>{
@@ -41,9 +51,8 @@
     pending.set(key,job);return job;
   };
 
-  // Nie czekaj na pełny indeks przy pierwszym kliknięciu. Jeśli indeks jest gotowy,
-  // targeted() użyje go natychmiast; w przeciwnym razie skanuje tylko wybrany sklep
-  // porcjami, oddając klatkę przeglądarce między porcjami.
+  // Najpierw użyj gotowego cache store-year-detail. Pełny indeks lub skan porcjami
+  // są fallbackiem tylko wtedy, gdy bazowy cache nie jest dostępny.
   fast.rowsForStoreAsync=targeted;
 
   document.addEventListener('panparagon:data-changed',e=>{
