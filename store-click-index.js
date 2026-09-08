@@ -1,11 +1,11 @@
 (()=>{
   const CHUNK=1200,INTERACTIVE_CHUNK=5000;
-  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map(),interactiveWaiters=0;
+  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map(),interactiveWaiters=0,delayedTimer=0;
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const signature=()=>({src:Array.isArray(rows)?rows:[],len:Array.isArray(rows)?rows.length:0,sc:String(typeof storeCol!=='undefined'?storeCol:'')});
   const matches=()=>{const s=signature();return s.src===source&&s.len===sourceLen&&s.sc===sourceStoreCol};
-  const reset=()=>{const s=signature();source=s.src;sourceLen=s.len;sourceStoreCol=s.sc;index=new Map();ready=false;building=null;generation++};
+  const reset=()=>{const s=signature();source=s.src;sourceLen=s.len;sourceStoreCol=s.sc;index=new Map();ready=false;building=null;generation++;if(delayedTimer){clearTimeout(delayedTimer);delayedTimer=0}};
   const yieldToBrowser=priority=>new Promise(resolve=>{
     if(priority&&'requestAnimationFrame'in window){requestAnimationFrame(()=>resolve());return}
     if('requestIdleCallback'in window)requestIdleCallback(()=>resolve(),{timeout:80});
@@ -52,8 +52,12 @@
     return ready?index.get(String(name||''))||[]:[];
   };
   const scheduleBuild=(timeout=1200)=>{
-    const start=()=>build();
+    const start=()=>{if(interactiveWaiters>0)return scheduleDelayedBuild(3000,timeout);build()};
     if('requestIdleCallback'in window)requestIdleCallback(start,{timeout});else setTimeout(start,200);
+  };
+  const scheduleDelayedBuild=(delay=7000,timeout=1500)=>{
+    if(delayedTimer)clearTimeout(delayedTimer);
+    delayedTimer=setTimeout(()=>{delayedTimer=0;scheduleBuild(timeout)},delay);
   };
 
   const install=()=>{
@@ -67,17 +71,19 @@
     fast.isIndexed=()=>ready&&matches();
     if(idx)idx.rowsForStore=rowsForStore;
     reset();
-    scheduleBuild(1500);
+    // Nie konkuruj z pierwszym kliknięciem sklepu. Pełny indeks powstaje dopiero
+    // po kilku sekundach bezczynności; pierwsze wejście obsłuży targeted scan.
+    scheduleDelayedBuild(7000,1800);
     document.addEventListener('panparagon:data-changed',e=>{
       const main=e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast';
       if(main){
         if(matches())return;
         reset();
-        scheduleBuild(900);
+        scheduleDelayedBuild(5000,1500);
         return;
       }
       reset();
-      scheduleBuild(1200);
+      scheduleDelayedBuild(7000,1800);
     });
   };
 
