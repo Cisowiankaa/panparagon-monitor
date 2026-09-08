@@ -1,12 +1,17 @@
 (()=>{
   if(typeof window.render!=='function')return;
   const original=window.render,originalReport=typeof window.buildReport==='function'?window.buildReport:null;
-  const OWNER_KEY='__ppm_owner',SNAPSHOT_KEY='ppm_dashboard_snapshot_v1';
+  const OWNER_KEY='__ppm_owner',SNAPSHOT_KEY='ppm_dashboard_snapshot_v1',STORE_TABLE_LIMIT=60;
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const ownerName=r=>r?.[OWNER_KEY]==='mama'?'mama':'ja';
   const dcache=()=>window.PanParagonDateCache;
   const getDate=r=>{const c=dcache();return c&&typeof c.get==='function'?c.get(r):rowDate(r)};
   const safeMonthName=k=>{try{return monthName(k)}catch{const[y,m]=String(k||'').split('-');return new Intl.DateTimeFormat('pl-PL',{month:'long'}).format(new Date(+y,+m-1,1))}};
+  const storeTableHtml=ae=>{
+    if(!Array.isArray(ae)||!ae.length)return '<div class="empty">Brak danych.</div>';
+    const visible=ae.slice(0,STORE_TABLE_LIMIT);
+    return `<table><tr><th>#</th><th>Sklep</th><th>Paragony</th></tr>${visible.map(([s,n],i)=>`<tr><td>${i+1}</td><td>${esc(s)}</td><td><b>${n}</b></td></tr>`).join('')}</table>`;
+  };
   const snapshotHtml=data=>{
     if(!data||!Array.isArray(data.me)||!Array.isArray(data.yearEntries)||!Array.isArray(data.ae))return false;
     const me=data.me,yearEntries=data.yearEntries,ae=data.ae,years=data.years||{},months=data.months||{},undated=Number(data.undated||0),total=Number(data.total||0);
@@ -18,7 +23,7 @@
     const max=Math.max(1,...me.map(x=>x[1]));let lastYear='';hist.className='months-scroll'+(me.length?'':' empty');hist.innerHTML=me.length?me.map(([k,n])=>{const y=k.slice(0,4),head=y!==lastYear?`<div class="year-head">${y}</div>`:'';lastYear=y;return `${head}<div data-month-key="${k}" style="margin:12px 0"><div style="display:flex;justify-content:space-between"><span>${safeMonthName(k)}</span><b>${n}</b></div><div class="bar"><i style="width:${Math.max(5,n/max*100)}%"></i></div></div>`}).join(''):'Brak danych.';
     let rh='',ty='';for(const[k,n]of me){const y=k.slice(0,4);if(y!==ty){rh+=`<tr><td colspan="2" style="font-size:17px;font-weight:800;padding-top:18px">${y}</td></tr>`;ty=y}rh+=`<tr data-month-key="${k}"><td>${safeMonthName(k)}</td><td><b>${n}</b></td></tr>`}if(undated)rh+=`<tr><td>Nie rozpoznano daty</td><td><b>${undated}</b></td></tr>`;
     if(monthsTable)monthsTable.innerHTML=me.length||undated?`<table><tr><th>Miesiąc</th><th>Paragony</th></tr>${rh}</table>`:'<div class="empty">Brak danych.</div>';
-    if(storesTable)storesTable.innerHTML=ae.length?`<table><tr><th>#</th><th>Sklep</th><th>Paragony</th></tr>${ae.map(([s,n],i)=>`<tr><td>${i+1}</td><td>${esc(s)}</td><td><b>${n}</b></td></tr>`).join('')}</table>`:'<div class="empty">Brak danych.</div>';
+    if(storesTable)storesTable.innerHTML=storeTableHtml(ae);
     const byYear={};for(const[k]of me){const y=k.slice(0,4);(byYear[y]??=[]).push(k)}month.innerHTML='<option value="">Wszystkie miesiące</option>'+Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).map(y=>`<optgroup label="${y}">${byYear[y].map(k=>`<option value="${k}">${safeMonthName(k)}</option>`).join('')}</optgroup>`).join('');
     document.documentElement.dataset.ppmSnapshot='shown';return true;
   };
@@ -58,7 +63,7 @@
     const max=Math.max(1,...me.map(x=>x[1]));let lastYear='';$('hist').className='months-scroll'+(me.length?'':' empty');$('hist').innerHTML=me.length?me.map(([k,n])=>{const y=k.slice(0,4),head=y!==lastYear?`<div class="year-head">${y}</div>`:'';lastYear=y;return `${head}<div data-month-key="${k}" style="margin:12px 0"><div style="display:flex;justify-content:space-between"><span>${monthName(k)}</span><b>${n}</b></div><div class="bar"><i style="width:${Math.max(5,n/max*100)}%"></i></div></div>`}).join(''):'Brak danych.';
     let rh='',ty='';for(const[k,n]of me){const y=k.slice(0,4);if(y!==ty){rh+=`<tr><td colspan="2" style="font-size:17px;font-weight:800;padding-top:18px">${y}</td></tr>`;ty=y}rh+=`<tr data-month-key="${k}"><td>${monthName(k)}</td><td><b>${n}</b></td></tr>`}if(undated)rh+=`<tr><td>Nie rozpoznano daty</td><td><b>${undated}</b></td></tr>`;
     $('monthsTable').innerHTML=me.length||undated?`<table><tr><th>Miesiąc</th><th>Paragony</th></tr>${rh}</table>`:'<div class="empty">Brak danych.</div>';
-    $('storesTable').innerHTML=ae.length?`<table><tr><th>#</th><th>Sklep</th><th>Paragony</th></tr>${ae.map(([s,n],i)=>`<tr><td>${i+1}</td><td>${esc(s)}</td><td><b>${n}</b></td></tr>`).join('')}</table>`:'<div class="empty">Brak danych.</div>';
+    $('storesTable').innerHTML=storeTableHtml(ae);
     const byYear={};for(const[k]of me){const y=k.slice(0,4);(byYear[y]??=[]).push(k)}$('month').innerHTML='<option value="">Wszystkie miesiące</option>'+Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).map(y=>`<optgroup label="${y}">${byYear[y].map(k=>`<option value="${k}">${monthName(k)}</option>`).join('')}</optgroup>`).join('');$('month').value=selected&&months[selected]?selected:'';
   };
   const fastRender=(save=true)=>{
