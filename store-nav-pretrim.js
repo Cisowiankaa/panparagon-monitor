@@ -1,6 +1,6 @@
 (()=>{
   let token=0;
-  const LIMIT=60;
+  const LIMIT=30;
   const table=()=>document.getElementById('storesTable');
   const isStoresButton=target=>!!target?.closest?.('#nav button[data-v="stores"]');
   const reveal=box=>{if(box)box.style.visibility=''};
