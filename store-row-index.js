@@ -18,8 +18,11 @@
     return src;
   };
   const capture=r=>{
-    ensureSource();
     if(!r||typeof r!=='object'||seen.has(r))return;
+    if(seenCount>=sourceLen){
+      const src=currentRows(),sc=currentStoreCol();
+      if(src!==source||src.length!==sourceLen||sc!==storeColKey)reset();
+    }
     seen.add(r);seenCount++;
     const name=storeName(r);
     let bucket=byStore.get(name);
