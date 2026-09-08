@@ -3,6 +3,7 @@
   const state={};
   const now=()=>performance.now();
   const round=n=>Math.round(n*10)/10;
+  let phaseStart=0,phase='';
   const ensurePanel=()=>{
     const sec=document.getElementById('stores');if(!sec)return null;
     let el=document.getElementById('storePerfMini');
@@ -12,19 +13,48 @@
     if(table)table.before(el);else sec.appendChild(el);
     return el;
   };
+  const bottleneck=()=>{
+    const pairs=[['lista',state.storesNavPaintMs],['rekordy',state.rowsForStoreAsyncMs??state.rowsForStoreMs],['render',state.refreshStoreMs],['paint',state.detailStablePaintMs],['CPU',state.longTaskMaxMs]]
+      .filter(([,v])=>Number.isFinite(v));
+    if(!pairs.length)return'';
+    pairs.sort((a,b)=>b[1]-a[1]);
+    return pairs[0][1]>=50?` · najwolniej: ${pairs[0][0]} ${pairs[0][1]} ms`:'';
+  };
   const renderPanel=()=>{
     const el=ensurePanel();if(!el)return;
-    const nav=state.storesNavPaintMs,find=state.rowsForStoreAsyncMs??state.rowsForStoreMs,render=state.refreshStoreMs,stable=state.detailStablePaintMs;
+    const nav=state.storesNavPaintMs,find=state.rowsForStoreAsyncMs??state.rowsForStoreMs,render=state.refreshStoreMs,stable=state.detailStablePaintMs,long=state.longTaskMaxMs;
     const parts=[];
     if(Number.isFinite(nav))parts.push(`lista ${nav} ms`);
     if(Number.isFinite(find))parts.push(`rekordy ${find} ms`);
     if(Number.isFinite(render))parts.push(`render ${render} ms`);
     if(Number.isFinite(stable))parts.push(`paint ${stable} ms`);
-    el.textContent=parts.length?'Sklepy · wydajność: '+parts.join(' · '):'Sklepy · wydajność: gotowe do pomiaru';
+    if(Number.isFinite(long)&&long>=50)parts.push(`blokada CPU ${long} ms`);
+    el.textContent=parts.length?'Sklepy · wydajność: '+parts.join(' · ')+bottleneck():'Sklepy · wydajność: gotowe do pomiaru';
   };
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({...state,at:new Date().toISOString()}))}catch{};try{console.table([state])}catch{};renderPanel()};
   const sinceClick=()=>Number.isFinite(state.storeClickStartRaw)?round(now()-state.storeClickStartRaw):null;
   const paint=(label,start)=>requestAnimationFrame(()=>requestAnimationFrame(()=>{state[label]=round(now()-start);save()}));
+  const startPhase=name=>{phase=name;phaseStart=now();state.longTaskCount=0;state.longTaskTotalMs=0;state.longTaskMaxMs=0;state.longTaskPhase=name};
+
+  const installLongTaskObserver=()=>{
+    if(typeof PerformanceObserver!=='function')return;
+    try{
+      const po=new PerformanceObserver(list=>{
+        if(!phaseStart)return;
+        const cutoff=phaseStart-5;
+        for(const entry of list.getEntries()){
+          if(entry.startTime<cutoff)continue;
+          const d=round(entry.duration||0);if(d<50)continue;
+          state.longTaskCount=(state.longTaskCount||0)+1;
+          state.longTaskTotalMs=round((state.longTaskTotalMs||0)+d);
+          state.longTaskMaxMs=Math.max(state.longTaskMaxMs||0,d);
+          state.longTaskPhase=phase;
+        }
+        save();
+      });
+      po.observe({entryTypes:['longtask']});
+    }catch{}
+  };
 
   const wrap=()=>{
     const idx=window.PanParagonStoreYearDetail;
@@ -57,16 +87,17 @@
     state.storeClickStartRaw=t;
     state.storeClickStart=Math.round(t);
     state.storeClickName=name;
+    startPhase('kliknięcie sklepu');
     save();
   };
 
   const install=()=>{
-    ensurePanel();renderPanel();wrap();
+    ensurePanel();renderPanel();wrap();installLongTaskObserver();
     setTimeout(wrap,0);
     setTimeout(wrap,250);
     document.addEventListener('click',e=>{
       const nav=e.target.closest?.('#nav button[data-v="stores"]');
-      if(nav){const t=now();state.storesNavStart=Math.round(t);paint('storesNavPaintMs',t);return}
+      if(nav){const t=now();for(const k of Object.keys(state))delete state[k];state.storesNavStart=Math.round(t);startPhase('lista sklepów');paint('storesNavPaintMs',t);save();return}
       const table=document.getElementById('storesTable'),tr=e.target.closest?.('#storesTable tr');
       if(tr&&table?.contains(tr)&&tr.rowIndex!==0){const t=now(),name=(tr.querySelectorAll('td')[1]?.textContent||'').trim();resetClick(name,t);paint('storeDetailPaintMs',t);setTimeout(wrap,0)}
     },true);
