@@ -86,7 +86,9 @@
     lastList=storeEntries();
     lastTotal=lastList.reduce((s,x)=>s+x[1],0);
     shown=Math.min(PAGE,lastList.length);
-    updateInfo();wireMoreButton();
+    lastRowsSig='';
+    renderRows();
+    updateInfo();
     return true;
   };
   const setYear=(value,opts={})=>{
