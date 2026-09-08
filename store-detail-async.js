@@ -1,6 +1,7 @@
 (()=>{
   let openToken=0;
   const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+  const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const clearHeavyDetail=()=>{
     try{window.PanParagonStoreMonthCache?.invalidate?.()}catch{}
     const receipt=document.getElementById('storeReceiptCard');
@@ -17,6 +18,12 @@
     if(detail)detail.classList.add('on');
     document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('on'));
     window.scrollTo({top:0,behavior:'auto'});
+  };
+  const rowsForSelectedYear=(list,year)=>{
+    if(!year)return list;
+    const y=String(year),out=[];
+    for(const r of list||[]){const d=cachedDate(r);if(d&&String(d.getFullYear())===y)out.push(r)}
+    return out;
   };
   const install=()=>{
     const old=document.getElementById('storesTable');
@@ -43,7 +50,7 @@
       if(fast?.rowsForStoreAsync)allStore=await fast.rowsForStoreAsync(name);
       else allStore=idx.rowsForStore(name);
       if(token!==openToken||!Array.isArray(allStore))return;
-      const detail=year&&idx.rowsForYear?idx.rowsForYear(year,name):allStore;
+      const detail=rowsForSelectedYear(allStore,year);
       if(title)title.textContent=year?`${name} — ${year}`:name;
       if(typeof api.refreshStore==='function')requestAnimationFrame(()=>{if(token===openToken)api.refreshStore(name,detail,allStore)});
       else api.openStore(name,detail,allStore);
