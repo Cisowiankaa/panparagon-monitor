@@ -1,6 +1,6 @@
 (()=>{
   const CHUNK=1200,INTERACTIVE_CHUNK=5000;
-  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map(),interactiveWaiters=0,delayedTimer=0;
+  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map(),interactiveWaiters=0,delayedTimer=0,targetedAsync=null;
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const signature=()=>({src:Array.isArray(rows)?rows:[],len:Array.isArray(rows)?rows.length:0,sc:String(typeof storeCol!=='undefined'?storeCol:'')});
@@ -41,6 +41,20 @@
     if(!matches())reset();
     const key=String(name||'');
     if(ready)return index.get(key)||[];
+
+    // Pierwszy klik nie może budować indeksu wszystkich sklepów.
+    // Użyj targeted scan z store-click-fast, który zbiera wyłącznie wybrany sklep
+    // i oddaje klatkę przeglądarce między porcjami.
+    if(targetedAsync){
+      interactiveWaiters++;
+      try{
+        const out=await targetedAsync(key);
+        if(Array.isArray(out))return out;
+      }catch{}
+      finally{interactiveWaiters=Math.max(0,interactiveWaiters-1)}
+    }
+
+    // Fallback tylko gdy targeted scan jest niedostępny.
     interactiveWaiters++;
     try{
       await build();
@@ -65,6 +79,7 @@
     if(!fast)return;
     if(!fast.__baseRowsForStoreAsync)fast.__baseRowsForStoreAsync=fast.rowsForStoreAsync?.bind(fast);
     if(!fast.__baseRowsForStore)fast.__baseRowsForStore=fast.rowsForStore?.bind(fast);
+    targetedAsync=fast.__baseRowsForStoreAsync||fast.rowsForStoreAsync?.bind(fast)||null;
     fast.rowsForStoreAsync=rowsForStoreAsync;
     fast.rowsForStore=rowsForStore;
     fast.whenIndexed=build;
