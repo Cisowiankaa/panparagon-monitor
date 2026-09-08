@@ -3,7 +3,26 @@
   const state={};
   const now=()=>performance.now();
   const round=n=>Math.round(n*10)/10;
-  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({...state,at:new Date().toISOString()}))}catch{};try{console.table([state])}catch{}};
+  const ensurePanel=()=>{
+    const sec=document.getElementById('stores');if(!sec)return null;
+    let el=document.getElementById('storePerfMini');
+    if(el)return el;
+    el=document.createElement('div');el.id='storePerfMini';el.className='small';el.style.cssText='margin:0 0 10px;opacity:.72';
+    const table=document.getElementById('storesTable');
+    if(table)table.before(el);else sec.appendChild(el);
+    return el;
+  };
+  const renderPanel=()=>{
+    const el=ensurePanel();if(!el)return;
+    const nav=state.storesNavPaintMs,find=state.rowsForStoreAsyncMs??state.rowsForStoreMs,render=state.refreshStoreMs,stable=state.detailStablePaintMs;
+    const parts=[];
+    if(Number.isFinite(nav))parts.push(`lista ${nav} ms`);
+    if(Number.isFinite(find))parts.push(`rekordy ${find} ms`);
+    if(Number.isFinite(render))parts.push(`render ${render} ms`);
+    if(Number.isFinite(stable))parts.push(`paint ${stable} ms`);
+    el.textContent=parts.length?'Sklepy · wydajność: '+parts.join(' · '):'Sklepy · wydajność: gotowe do pomiaru';
+  };
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({...state,at:new Date().toISOString()}))}catch{};try{console.table([state])}catch{};renderPanel()};
   const sinceClick=()=>Number.isFinite(state.storeClickStartRaw)?round(now()-state.storeClickStartRaw):null;
   const paint=(label,start)=>requestAnimationFrame(()=>requestAnimationFrame(()=>{state[label]=round(now()-start);save()}));
 
@@ -42,7 +61,7 @@
   };
 
   const install=()=>{
-    wrap();
+    ensurePanel();renderPanel();wrap();
     setTimeout(wrap,0);
     setTimeout(wrap,250);
     document.addEventListener('click',e=>{
