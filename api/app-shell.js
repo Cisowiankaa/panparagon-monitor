@@ -30,6 +30,7 @@ export default async function handler(req,res){
       ['store-details.js',4],
       ['store-list-fast.js',1],
       ['store-fast-refresh.js',6],
+      ['store-click-recovery.js',1],
       ['store-open-fast.js',1],
       ['store-sort.js',2],
       ['store-filter.js',3],
