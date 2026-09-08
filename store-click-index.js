@@ -1,12 +1,13 @@
 (()=>{
-  const CHUNK=1200;
-  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map();
+  const CHUNK=1200,INTERACTIVE_CHUNK=5000;
+  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map(),interactiveWaiters=0;
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const signature=()=>({src:Array.isArray(rows)?rows:[],len:Array.isArray(rows)?rows.length:0,sc:String(typeof storeCol!=='undefined'?storeCol:'')});
   const matches=()=>{const s=signature();return s.src===source&&s.len===sourceLen&&s.sc===sourceStoreCol};
   const reset=()=>{const s=signature();source=s.src;sourceLen=s.len;sourceStoreCol=s.sc;index=new Map();ready=false;building=null;generation++};
-  const yieldToBrowser=()=>new Promise(resolve=>{
+  const yieldToBrowser=priority=>new Promise(resolve=>{
+    if(priority&&'requestAnimationFrame'in window){requestAnimationFrame(()=>resolve());return}
     if('requestIdleCallback'in window)requestIdleCallback(()=>resolve(),{timeout:80});
     else requestAnimationFrame(()=>resolve());
   });
@@ -20,14 +21,14 @@
       let i=0;
       while(i<src.length){
         if(gen!==generation||src!==source)return false;
-        const end=Math.min(i+CHUNK,src.length);
+        const priority=interactiveWaiters>0,chunk=priority?INTERACTIVE_CHUNK:CHUNK,end=Math.min(i+chunk,src.length);
         for(;i<end;i++){
           const r=src[i],name=storeName(r);
           let bucket=map.get(name);
           if(!bucket){bucket=[];map.set(name,bucket)}
           bucket.push(r);
         }
-        if(i<src.length)await yieldToBrowser();
+        if(i<src.length)await yieldToBrowser(priority);
       }
       if(gen!==generation||src!==source)return false;
       ready=true;building=null;
@@ -40,8 +41,11 @@
     if(!matches())reset();
     const key=String(name||'');
     if(ready)return index.get(key)||[];
-    await build();
-    return ready?index.get(key)||[]:[];
+    interactiveWaiters++;
+    try{
+      await build();
+      return ready?index.get(key)||[]:[];
+    }finally{interactiveWaiters=Math.max(0,interactiveWaiters-1)}
   };
   const rowsForStore=name=>{
     if(!matches())reset();
