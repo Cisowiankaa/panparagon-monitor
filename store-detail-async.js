@@ -14,6 +14,8 @@
     const table=old.cloneNode(true);
     table.dataset.asyncStoreDetail='1';
     old.replaceWith(table);
+    window.PanParagonStoreTableWindow?.install?.();
+    window.PanParagonStoreTableWindow?.trim?.();
     table.addEventListener('click',async e=>{
       const tr=e.target.closest?.('tr');
       if(!tr||!table.contains(tr)||tr.rowIndex===0)return;
