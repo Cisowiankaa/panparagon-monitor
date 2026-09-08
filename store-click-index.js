@@ -1,11 +1,11 @@
 (()=>{
   const CHUNK=1200,INTERACTIVE_CHUNK=5000;
-  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map(),interactiveWaiters=0,delayedTimer=0,targetedAsync=null;
+  let source=null,sourceLen=-1,sourceStoreCol='',generation=0,ready=false,building=null,index=new Map(),interactiveWaiters=0,targetedAsync=null;
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const signature=()=>({src:Array.isArray(rows)?rows:[],len:Array.isArray(rows)?rows.length:0,sc:String(typeof storeCol!=='undefined'?storeCol:'')});
   const matches=()=>{const s=signature();return s.src===source&&s.len===sourceLen&&s.sc===sourceStoreCol};
-  const reset=()=>{const s=signature();source=s.src;sourceLen=s.len;sourceStoreCol=s.sc;index=new Map();ready=false;building=null;generation++;if(delayedTimer){clearTimeout(delayedTimer);delayedTimer=0}};
+  const reset=()=>{const s=signature();source=s.src;sourceLen=s.len;sourceStoreCol=s.sc;index=new Map();ready=false;building=null;generation++};
   const yieldToBrowser=priority=>new Promise(resolve=>{
     if(priority&&'requestAnimationFrame'in window){requestAnimationFrame(()=>resolve());return}
     if('requestIdleCallback'in window)requestIdleCallback(()=>resolve(),{timeout:80});
@@ -42,9 +42,8 @@
     const key=String(name||'');
     if(ready)return index.get(key)||[];
 
-    // Pierwszy klik nie może budować indeksu wszystkich sklepów.
-    // Użyj targeted scan z store-click-fast, który zbiera wyłącznie wybrany sklep
-    // i oddaje klatkę przeglądarce między porcjami.
+    // Normalna ścieżka interaktywna: targeted scan / gotowy row-index.
+    // Nie budujemy całego indeksu wszystkich sklepów tylko dlatego, że użytkownik kliknął jeden sklep.
     if(targetedAsync){
       interactiveWaiters++;
       try{
@@ -54,7 +53,7 @@
       finally{interactiveWaiters=Math.max(0,interactiveWaiters-1)}
     }
 
-    // Fallback tylko gdy targeted scan jest niedostępny.
+    // Fallback wyłącznie gdy targeted path jest niedostępny.
     interactiveWaiters++;
     try{
       await build();
@@ -64,14 +63,6 @@
   const rowsForStore=name=>{
     if(!matches())reset();
     return ready?index.get(String(name||''))||[]:[];
-  };
-  const scheduleBuild=(timeout=1200)=>{
-    const start=()=>{if(interactiveWaiters>0)return scheduleDelayedBuild(3000,timeout);build()};
-    if('requestIdleCallback'in window)requestIdleCallback(start,{timeout});else setTimeout(start,200);
-  };
-  const scheduleDelayedBuild=(delay=7000,timeout=1500)=>{
-    if(delayedTimer)clearTimeout(delayedTimer);
-    delayedTimer=setTimeout(()=>{delayedTimer=0;scheduleBuild(timeout)},delay);
   };
 
   const install=()=>{
@@ -86,19 +77,13 @@
     fast.isIndexed=()=>ready&&matches();
     if(idx)idx.rowsForStore=rowsForStore;
     reset();
-    // Nie konkuruj z pierwszym kliknięciem sklepu. Pełny indeks powstaje dopiero
-    // po kilku sekundach bezczynności; pierwsze wejście obsłuży targeted scan.
-    scheduleDelayedBuild(7000,1800);
+
+    // Celowo bez automatycznego background build.
+    // store-row-index jest zapełniany podczas głównego renderu, a targetedAsync obsługuje pierwszy klik.
     document.addEventListener('panparagon:data-changed',e=>{
       const main=e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast';
-      if(main){
-        if(matches())return;
-        reset();
-        scheduleDelayedBuild(5000,1500);
-        return;
-      }
+      if(main&&matches())return;
       reset();
-      scheduleDelayedBuild(7000,1800);
     });
   };
 
