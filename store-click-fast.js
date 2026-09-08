@@ -50,10 +50,18 @@
     if(!baseRowsForStore)return null;
     try{const out=baseRowsForStore(key);return Array.isArray(out)?out:null}catch{return null}
   };
+  const indexedStore=key=>{
+    try{
+      const out=window.PanParagonStoreRowIndex?.rowsForStore?.(key);
+      return Array.isArray(out)?out:null;
+    }catch{return null}
+  };
 
   const rowsForStore=name=>{
     const src=ensureSource(),key=String(name||'');
     if(cache.has(key))return cache.get(key);
+    const indexed=indexedStore(key);
+    if(indexed){cache.set(key,indexed);cacheStats(key,indexed);return indexed}
     const base=cachedBaseStore(key);
     if(base){cache.set(key,base);cacheStats(key,base);return base}
     const out=[];
@@ -63,8 +71,8 @@
   const rowsForStoreAsync=name=>{
     const src=ensureSource(),key=String(name||'');
     if(cache.has(key))return Promise.resolve(cache.get(key));
-    const base=cachedBaseStore(key);
-    if(base){cache.set(key,base);cacheStats(key,base);return Promise.resolve(base)}
+    const indexed=indexedStore(key);
+    if(indexed){cache.set(key,indexed);cacheStats(key,indexed);return Promise.resolve(indexed)}
     if(interactivePending.has(key))return interactivePending.get(key);
     const gen=generation,out=[];let i=0;
     const promise=new Promise(resolve=>{
