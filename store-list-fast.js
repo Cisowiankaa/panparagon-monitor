@@ -1,13 +1,11 @@
 (()=>{
+  // Compatibility module only. Do not replace or clone #storesTable:
+  // other store modules attach delegated listeners to the live element.
   const install=()=>{
-    const old=document.getElementById('storesTable');
-    if(!old||old.dataset.fastList==='1')return;
-    const fresh=old.cloneNode(true);
-    fresh.dataset.fastList='1';
-    old.replaceWith(fresh);
-    window.PanParagonStoreTableWindow?.install?.();
-    window.PanParagonStoreTableWindow?.trim?.();
-    window.PanParagonStoreListFast={active:true};
+    const table=document.getElementById('storesTable');
+    if(!table)return;
+    table.dataset.fastList='1';
+    window.PanParagonStoreListFast={active:true,mode:'delegated'};
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
