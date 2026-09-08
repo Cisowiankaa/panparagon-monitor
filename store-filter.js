@@ -41,6 +41,18 @@
     }
     return Object.entries(out).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pl'));
   };
+  const wireMoreButton=()=>{
+    const box=document.getElementById('storesTable');if(!box)return;
+    let wrap=document.getElementById('storeLoadMoreWrap');
+    const remaining=Math.max(0,lastList.length-Math.min(shown,lastList.length));
+    if(!remaining){wrap?.remove();return}
+    if(!wrap){
+      wrap=document.createElement('div');wrap.id='storeLoadMoreWrap';wrap.style.cssText='text-align:center;padding:14px 0 2px';
+      const btn=document.createElement('button');btn.id='storeLoadMore';wrap.appendChild(btn);box.appendChild(wrap);
+    }
+    const btn=wrap.querySelector('#storeLoadMore');
+    if(btn){btn.textContent=`Pokaż więcej (${Math.min(PAGE,remaining)})`;btn.onclick=()=>{shown+=PAGE;renderRows();updateInfo()}}
+  };
   const renderRows=()=>{
     const box=document.getElementById('storesTable');if(!box)return;
     if(!lastList.length){
@@ -49,10 +61,10 @@
     }
     const visible=lastList.slice(0,shown),more=visible.length<lastList.length;
     const sig=`${year}|${shown}|${lastList.length}|${visible.map(([n,c])=>`${n}\u0001${c}`).join('\u0002')}`;
-    if(sig===lastRowsSig)return;
+    if(sig===lastRowsSig){wireMoreButton();return}
     lastRowsSig=sig;
-    box.innerHTML=`<table><tr><th>#</th><th>Sklep</th><th>Paragony${year?' · '+year:''}</th></tr>${visible.map(([n,c],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td><b>${c}</b></td></tr>`).join('')}</table>${more?`<div style="text-align:center;padding:14px 0 2px"><button id="storeLoadMore">Pokaż więcej (${Math.min(PAGE,lastList.length-visible.length)})</button></div>`:''}`;
-    const btn=document.getElementById('storeLoadMore');if(btn)btn.onclick=()=>{shown+=PAGE;renderRows();updateInfo()};
+    box.innerHTML=`<table><tr><th>#</th><th>Sklep</th><th>Paragony${year?' · '+year:''}</th></tr>${visible.map(([n,c],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td><b>${c}</b></td></tr>`).join('')}</table>`;
+    if(more)wireMoreButton();
   };
   const updateInfo=()=>{
     const info=document.getElementById('storeFilterInfo');if(!info)return;
@@ -66,6 +78,17 @@
     lastTotal=lastList.reduce((s,x)=>s+x[1],0);
     renderRows();updateInfo();
   };
+  const primeExistingTable=()=>{
+    ensureControls();refreshYears();
+    if(query||year)return false;
+    const box=document.getElementById('storesTable'),table=box?.querySelector('table');
+    if(!table)return false;
+    lastList=storeEntries();
+    lastTotal=lastList.reduce((s,x)=>s+x[1],0);
+    shown=Math.min(PAGE,lastList.length);
+    updateInfo();wireMoreButton();
+    return true;
+  };
   const setYear=(value,opts={})=>{
     ensureControls();refreshYears();
     const next=String(value||''),s=document.getElementById('storeYear');
@@ -77,11 +100,14 @@
   };
   const scheduleNavRender=()=>{
     cancelAnimationFrame(navRaf);
-    navRaf=requestAnimationFrame(()=>{shown=PAGE;renderFiltered()});
+    navRaf=requestAnimationFrame(()=>{
+      shown=PAGE;
+      if(!primeExistingTable())renderFiltered();
+    });
   };
   const install=()=>{
     ensureControls();
-    if(document.getElementById('stores')?.classList.contains('on'))renderFiltered();
+    if(document.getElementById('stores')?.classList.contains('on')){if(!primeExistingTable())renderFiltered()}
     document.addEventListener('click',e=>{
       if(e.target.closest?.('#nav button[data-v="stores"]'))scheduleNavRender();
     });
