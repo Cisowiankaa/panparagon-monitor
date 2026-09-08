@@ -10,9 +10,14 @@
 
   const sourceRows=()=>{
     const name=currentStore(),api=window.PanParagonStoreYearDetail;
-    if(!name||!api)return [];
-    const src=api.rowsForStore?.(name);
-    return Array.isArray(src)?src:[];
+    if(!name)return [];
+    const src=api?.rowsForStore?.(name);
+    if(Array.isArray(src)&&src.length)return src;
+    if(!Array.isArray(rows))return [];
+    const col=typeof storeCol==='string'?storeCol:'';
+    return rows.filter(r=>{
+      try{return String(r?.[col]||'Nieznany sklep').trim()===name}catch{return false}
+    });
   };
 
   const ensureIndex=()=>{
