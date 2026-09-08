@@ -7,8 +7,10 @@
     if(typeof html!=='string')return html;
     const open=html.match(/^\s*(<table\b[^>]*>)/i)?.[1];
     if(!open)return html;
-    const rows=[...html.matchAll(/<tr\b[\s\S]*?<\/tr>/gi)].map(m=>m[0]);
-    if(rows.length<=LIMIT+1)return html;
+    const re=/<tr\b[\s\S]*?<\/tr>/gi,rows=[];
+    let m;
+    while(rows.length<=LIMIT&&(m=re.exec(html)))rows.push(m[0]);
+    if(rows.length<=LIMIT+1&&!re.test(html))return html;
     return `${open}${rows.slice(0,LIMIT+1).join('')}</table>`;
   };
 
@@ -20,10 +22,8 @@
       get(){return nativeGet.call(this)},
       set(value){
         if(typeof value==='string'){
-          const total=(value.match(/<tr\b/gi)||[]).length-1;
           const next=windowHtml(value);
           nativeSet.call(this,next);
-          if(total>LIMIT)this.dataset.ppmWindowedTotal=String(total);else delete this.dataset.ppmWindowedTotal;
           const table=this.querySelector('table');
           if(table)table.dataset.ppmWindowed='1';
           return;
@@ -40,12 +40,11 @@
     if(!box)return;
     const table=box.querySelector('table');
     if(!table)return;
-    const rows=[...table.querySelectorAll('tr')];
-    if(rows.length<=LIMIT+1){table.dataset.ppmWindowed='1';return}
-    const frag=document.createDocumentFragment(),next=table.cloneNode(false);
-    for(let i=0;i<=LIMIT&&i<rows.length;i++)frag.appendChild(rows[i]);
+    const count=table.rows?.length||0;
+    if(count<=LIMIT+1){table.dataset.ppmWindowed='1';return}
+    const next=table.cloneNode(false),frag=document.createDocumentFragment();
+    for(let i=0;i<Math.min(count,LIMIT+1);i++)frag.appendChild(table.rows[i].cloneNode(true));
     next.appendChild(frag);next.dataset.ppmWindowed='1';table.replaceWith(next);
-    box.dataset.ppmWindowedTotal=String(rows.length-1);
   };
 
   const schedule=()=>queueMicrotask(trim);
