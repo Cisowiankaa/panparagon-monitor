@@ -28,6 +28,7 @@ export default async function handler(req,res){
       ['sync-history-cache.js',1],
       ['store-details.js',4],
       ['store-list-fast.js',1],
+      ['store-table-window.js',1],
       ['store-fast-refresh.js',6],
       ['store-click-recovery.js',1],
       ['store-open-fast.js',1],
