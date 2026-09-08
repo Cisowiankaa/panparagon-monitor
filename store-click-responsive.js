@@ -4,7 +4,7 @@
 
   const idx=window.PanParagonStoreYearDetail;
   const baseRowsForYear=typeof idx?.rowsForYear==='function'?idx.rowsForYear.bind(idx):null;
-  const CHUNK=250;
+  const CHUNK=2000;
   let source=null,sourceLen=-1,sourceStoreCol='',generation=0;
   const cache=new Map(),yearCache=new Map(),pending=new Map();
 
@@ -80,9 +80,6 @@
     return baseRowsForYear?baseRowsForYear(y,n):[];
   };
 
-  // Najpierw używamy indeksu zbudowanego przy głównym renderze. Pełny skan 35k
-  // pozostaje wyłącznie fallbackiem, gdy indeks nie zdążył się jeszcze zapełnić.
-  // Małe porcje chronią responsywność UI na słabszych urządzeniach.
   fast.rowsForStoreAsync=targeted;
   if(idx)idx.rowsForYear=rowsForYear;
 
