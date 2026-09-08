@@ -13,18 +13,17 @@
   };
 
   const installWriteWindow=()=>{
-    const view=document.getElementById('stores'),box=document.getElementById('storesTable');
+    const box=document.getElementById('storesTable');
     if(!box||!nativeGet||!nativeSet||box.dataset.ppmWriteWindow==='1')return box;
     Object.defineProperty(box,'innerHTML',{
       configurable:true,
       get(){return nativeGet.call(this)},
       set(value){
-        const hidden=!view?.classList.contains('on');
-        if(hidden&&typeof value==='string'){
+        if(typeof value==='string'){
           const total=(value.match(/<tr\b/gi)||[]).length-1;
           const next=windowHtml(value);
           nativeSet.call(this,next);
-          if(total>LIMIT)this.dataset.ppmWindowedTotal=String(total);
+          if(total>LIMIT)this.dataset.ppmWindowedTotal=String(total);else delete this.dataset.ppmWindowedTotal;
           const table=this.querySelector('table');
           if(table)table.dataset.ppmWindowed='1';
           return;
@@ -37,10 +36,10 @@
   };
 
   const trim=()=>{
-    const view=document.getElementById('stores'),box=installWriteWindow();
-    if(!box||view?.classList.contains('on'))return;
+    const box=installWriteWindow();
+    if(!box)return;
     const table=box.querySelector('table');
-    if(!table||table.dataset.ppmWindowed==='1')return;
+    if(!table)return;
     const rows=[...table.querySelectorAll('tr')];
     if(rows.length<=LIMIT+1){table.dataset.ppmWindowed='1';return}
     const frag=document.createDocumentFragment(),next=table.cloneNode(false);
