@@ -10,6 +10,14 @@
 
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
+  const rowIndexRows=name=>{
+    try{
+      const api=window.PanParagonStoreRowIndex;
+      if(!api?.isReady?.()||typeof api.rowsForStore!=='function')return null;
+      const out=api.rowsForStore(String(name||''));
+      return Array.isArray(out)?out:null;
+    }catch{return null}
+  };
   const signature=()=>({src:Array.isArray(rows)?rows:[],len:Array.isArray(rows)?rows.length:0,sc:String(typeof storeCol!=='undefined'?storeCol:'')});
   const ensureSource=()=>{
     const s=signature();
@@ -22,9 +30,11 @@
 
   const targeted=async name=>{
     const src=ensureSource(),key=String(name||'');
+    const direct=rowIndexRows(key);
+    if(direct){cache.set(key,direct);return direct}
     if(fast.isIndexed?.()){
       const indexed=fast.rowsForStore?.(key);
-      if(Array.isArray(indexed)&&indexed.length){cache.set(key,indexed);return indexed}
+      if(Array.isArray(indexed)){cache.set(key,indexed);return indexed}
     }
     if(cache.has(key))return cache.get(key);
     if(pending.has(key))return pending.get(key);
@@ -48,7 +58,11 @@
     ensureSource();
     const n=String(name||''),y=String(year||''),key=`${n}|${y}`;
     if(yearCache.has(key))return yearCache.get(key);
-    const storeRows=cache.get(n);
+    let storeRows=cache.get(n);
+    if(!Array.isArray(storeRows)){
+      const direct=rowIndexRows(n);
+      if(direct){storeRows=direct;cache.set(n,direct)}
+    }
     if(Array.isArray(storeRows)){
       const out=[];
       for(const r of storeRows){const d=cachedDate(r);if(d&&String(d.getFullYear())===y)out.push(r)}
@@ -66,8 +80,8 @@
     return baseRowsForYear?baseRowsForYear(y,n):[];
   };
 
-  // Pierwszy klik nie dotyka starego synchronicznego indeksu wszystkich sklepów.
-  // Skan wybranego sklepu odbywa się porcjami i oddaje klatkę przeglądarce.
+  // Najpierw używamy indeksu zbudowanego przy głównym renderze. Pełny skan 35k
+  // pozostaje wyłącznie fallbackiem, gdy indeks nie zdążył się jeszcze zapełnić.
   fast.rowsForStoreAsync=targeted;
   if(idx)idx.rowsForYear=rowsForYear;
 
