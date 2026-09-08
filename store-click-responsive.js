@@ -41,17 +41,10 @@
     pending.set(key,job);return job;
   };
 
-  const indexedAsync=typeof fast.rowsForStoreAsync==='function'?fast.rowsForStoreAsync.bind(fast):null;
-  fast.rowsForStoreAsync=async name=>{
-    ensureSource();
-    if(indexedAsync){
-      try{
-        const indexed=await indexedAsync(name);
-        if(Array.isArray(indexed))return indexed;
-      }catch{}
-    }
-    return targeted(name);
-  };
+  // Nie czekaj na pełny indeks przy pierwszym kliknięciu. Jeśli indeks jest gotowy,
+  // targeted() użyje go natychmiast; w przeciwnym razie skanuje tylko wybrany sklep
+  // porcjami, oddając klatkę przeglądarce między porcjami.
+  fast.rowsForStoreAsync=targeted;
 
   document.addEventListener('panparagon:data-changed',e=>{
     if(e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast')return;
