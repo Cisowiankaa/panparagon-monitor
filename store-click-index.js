@@ -11,6 +11,14 @@
     if('requestIdleCallback'in window)requestIdleCallback(()=>resolve(),{timeout:80});
     else requestAnimationFrame(()=>resolve());
   });
+  const rowIndexRows=name=>{
+    try{
+      const api=window.PanParagonStoreRowIndex;
+      if(!api?.isReady?.()||typeof api.rowsForStore!=='function')return null;
+      const out=api.rowsForStore(String(name||''));
+      return Array.isArray(out)?out:null;
+    }catch{return null}
+  };
 
   const build=()=>{
     if(!matches())reset();
@@ -39,11 +47,10 @@
 
   const rowsForStoreAsync=async name=>{
     if(!matches())reset();
-    const key=String(name||'');
+    const key=String(name||''),direct=rowIndexRows(key);
+    if(direct)return direct;
     if(ready)return index.get(key)||[];
 
-    // Normalna ścieżka interaktywna: targeted scan / gotowy row-index.
-    // Nie budujemy całego indeksu wszystkich sklepów tylko dlatego, że użytkownik kliknął jeden sklep.
     if(targetedAsync){
       interactiveWaiters++;
       try{
@@ -53,7 +60,6 @@
       finally{interactiveWaiters=Math.max(0,interactiveWaiters-1)}
     }
 
-    // Fallback wyłącznie gdy targeted path jest niedostępny.
     interactiveWaiters++;
     try{
       await build();
@@ -62,7 +68,9 @@
   };
   const rowsForStore=name=>{
     if(!matches())reset();
-    return ready?index.get(String(name||''))||[]:[];
+    const key=String(name||''),direct=rowIndexRows(key);
+    if(direct)return direct;
+    return ready?index.get(key)||[]:[];
   };
 
   const install=()=>{
@@ -78,8 +86,6 @@
     if(idx)idx.rowsForStore=rowsForStore;
     reset();
 
-    // Celowo bez automatycznego background build.
-    // store-row-index jest zapełniany podczas głównego renderu, a targetedAsync obsługuje pierwszy klik.
     document.addEventListener('panparagon:data-changed',e=>{
       const main=e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast';
       if(main&&matches())return;
