@@ -44,7 +44,12 @@
   const indexedAsync=typeof fast.rowsForStoreAsync==='function'?fast.rowsForStoreAsync.bind(fast):null;
   fast.rowsForStoreAsync=async name=>{
     ensureSource();
-    if(fast.isIndexed?.()&&indexedAsync)return indexedAsync(name);
+    if(indexedAsync){
+      try{
+        const indexed=await indexedAsync(name);
+        if(Array.isArray(indexed))return indexed;
+      }catch{}
+    }
     return targeted(name);
   };
 
