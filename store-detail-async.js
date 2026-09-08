@@ -1,9 +1,19 @@
 (()=>{
   let openToken=0;
   const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+  const clearHeavyDetail=()=>{
+    try{window.PanParagonStoreMonthCache?.invalidate?.()}catch{}
+    const receipt=document.getElementById('storeReceiptCard');
+    if(receipt)receipt.style.display='none';
+    for(const id of ['storeReceiptTable','storeDayTable']){
+      const el=document.getElementById(id);
+      if(el&&el.childNodes.length)el.replaceChildren();
+    }
+  };
   const showDetail=()=>{
-    document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
     const detail=document.getElementById('storeDetail');
+    if(detail&&!detail.classList.contains('on'))clearHeavyDetail();
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
     if(detail)detail.classList.add('on');
     document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('on'));
     window.scrollTo({top:0,behavior:'auto'});
