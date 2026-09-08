@@ -4,7 +4,7 @@
 
   const idx=window.PanParagonStoreYearDetail;
   const baseRowsForYear=typeof idx?.rowsForYear==='function'?idx.rowsForYear.bind(idx):null;
-  const CHUNK=800;
+  const CHUNK=250;
   let source=null,sourceLen=-1,sourceStoreCol='',generation=0;
   const cache=new Map(),yearCache=new Map(),pending=new Map();
 
