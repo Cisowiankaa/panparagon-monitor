@@ -120,7 +120,7 @@
     clear();prewarm();
   });
 
-  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForStoreAsync,rowsForYear,statsForStore,prewarm,whenReady,isPrewarmed:()=>prewarmed};
+  window.PanParagonStoreClickFast={clear,rowsForStore,rowsForStoreAsync,rowsForYear,statsForStore,prewarm,whenReady,isPrewarmed:()=>prewarmed,isIndexed:()=>prewarmed,__baseRowsForStore:cachedBaseStore};
   let tries=0;
   const ready=()=>{
     tries++;ensureSource();
