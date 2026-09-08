@@ -8,12 +8,16 @@
       if(!isStoresButton(e.target))return;
       const box=table();if(!box)return;
       const my=++token;
-      // Hide the complete hidden stores table before navigation. store-filter owns
-      // the single deferred/windowed render; do not render a second time here.
+      // Keep the complete hidden table invisible through the filter's two-frame
+      // windowed render. Reveal only on the following frame, after the DOM has
+      // already been reduced to the first page of stores.
       box.style.visibility='hidden';
       requestAnimationFrame(()=>{
         if(my!==token)return;
-        requestAnimationFrame(()=>{if(my===token)reveal(box)});
+        requestAnimationFrame(()=>{
+          if(my!==token)return;
+          requestAnimationFrame(()=>{if(my===token)reveal(box)});
+        });
       });
     },true);
   };
