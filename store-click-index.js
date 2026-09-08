@@ -47,6 +47,10 @@
     if(!matches())reset();
     return ready?index.get(String(name||''))||[]:[];
   };
+  const scheduleBuild=(timeout=1200)=>{
+    const start=()=>build();
+    if('requestIdleCallback'in window)requestIdleCallback(start,{timeout});else setTimeout(start,200);
+  };
 
   const install=()=>{
     const fast=window.PanParagonStoreClickFast,idx=window.PanParagonStoreYearDetail;
@@ -59,12 +63,17 @@
     fast.isIndexed=()=>ready&&matches();
     if(idx)idx.rowsForStore=rowsForStore;
     reset();
-    const start=()=>build();
-    if('requestIdleCallback'in window)requestIdleCallback(start,{timeout:1500});else setTimeout(start,300);
+    scheduleBuild(1500);
     document.addEventListener('panparagon:data-changed',e=>{
-      if(e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast')return;
+      const main=e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast';
+      if(main){
+        if(matches())return;
+        reset();
+        scheduleBuild(900);
+        return;
+      }
       reset();
-      if('requestIdleCallback'in window)requestIdleCallback(start,{timeout:1200});else setTimeout(start,200);
+      scheduleBuild(1200);
     });
   };
 
