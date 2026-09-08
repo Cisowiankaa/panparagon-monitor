@@ -101,8 +101,10 @@
   const scheduleNavRender=()=>{
     cancelAnimationFrame(navRaf);
     navRaf=requestAnimationFrame(()=>{
-      shown=PAGE;
-      if(!primeExistingTable())renderFiltered();
+      navRaf=requestAnimationFrame(()=>{
+        shown=PAGE;
+        if(!primeExistingTable())renderFiltered();
+      });
     });
   };
   const install=()=>{
