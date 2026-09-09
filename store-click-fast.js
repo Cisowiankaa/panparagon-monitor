@@ -2,7 +2,7 @@
   const api=window.PanParagonStoreYearDetail;if(!api)return;
   const baseRowsForStore=typeof api.rowsForStore==='function'?api.rowsForStore.bind(api):null;
   const baseRowsForYear=typeof api.rowsForYear==='function'?api.rowsForYear.bind(api):null;
-  const INTERACTIVE_CHUNK=2500;
+  const INTERACTIVE_CHUNK=700;
   const cache=new Map(),yearCache=new Map(),statsCache=new Map(),interactivePending=new Map();
   let source=null,sourceLen=-1,sourceStoreCol='',sourceDateCol='',generation=0,prewarmed=false;
 
