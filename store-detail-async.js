@@ -19,8 +19,18 @@
     document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('on'));
     window.scrollTo({top:0,behavior:'auto'});
   };
-  const rowsForSelectedYear=(list,year)=>{
+  const rowsForSelectedYear=(list,year,name,fast,idx)=>{
     if(!year)return list;
+    try{
+      if(typeof fast?.rowsForYear==='function'){
+        const out=fast.rowsForYear(year,name);
+        if(Array.isArray(out))return out;
+      }
+      if(typeof idx?.rowsForYear==='function'){
+        const out=idx.rowsForYear(year,name);
+        if(Array.isArray(out))return out;
+      }
+    }catch{}
     const y=String(year),out=[];
     for(const r of list||[]){const d=cachedDate(r);if(d&&String(d.getFullYear())===y)out.push(r)}
     return out;
@@ -50,7 +60,7 @@
       if(fast?.rowsForStoreAsync)allStore=await fast.rowsForStoreAsync(name);
       else allStore=idx.rowsForStore(name);
       if(token!==openToken||!Array.isArray(allStore))return;
-      const detail=rowsForSelectedYear(allStore,year);
+      const detail=rowsForSelectedYear(allStore,year,name,fast,idx);
       if(title)title.textContent=year?`${name} — ${year}`:name;
       if(typeof api.refreshStore==='function')requestAnimationFrame(()=>{if(token===openToken)api.refreshStore(name,detail,allStore)});
       else api.openStore(name,detail,allStore);
