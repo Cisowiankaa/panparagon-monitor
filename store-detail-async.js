@@ -62,7 +62,7 @@
       if(token!==openToken||!Array.isArray(allStore))return;
       const detail=rowsForSelectedYear(allStore,year,name,fast,idx);
       if(title)title.textContent=year?`${name} — ${year}`:name;
-      if(typeof api.refreshStore==='function')requestAnimationFrame(()=>{if(token===openToken)api.refreshStore(name,detail,allStore)});
+      if(typeof api.refreshStore==='function')api.refreshStore(name,detail,allStore);
       else api.openStore(name,detail,allStore);
     },true);
   };
