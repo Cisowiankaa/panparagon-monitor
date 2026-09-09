@@ -4,6 +4,7 @@
     .replace(/\s—\s\d{4}$/,'')
     .trim();
 
+  let token=0,lastFastAt=0;
   const build=name=>{
     if(!name)return null;
     const fast=window.PanParagonStoreClickFast;
@@ -21,17 +22,27 @@
     }catch{return null}
   };
 
-  const feed=()=>{
+  const fallbackFeed=async myToken=>{
+    await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+    if(myToken!==token||performance.now()-lastFastAt<40)return;
     const detail=document.getElementById('storeDetail');
     if(!detail?.classList.contains('on'))return;
     const data=build(cleanStoreName());
     if(!data)return;
-    document.dispatchEvent(new CustomEvent('panparagon:store-fast-data',{detail:data}));
+    document.dispatchEvent(new CustomEvent('panparagon:store-fast-data',{detail:{...data,prefeedFallback:true}}));
   };
 
   const install=()=>{
     const detail=document.getElementById('storeDetail');if(!detail)return;
-    new MutationObserver(feed).observe(detail,{attributes:true,attributeFilter:['class']});
+    document.addEventListener('panparagon:store-fast-data',e=>{
+      if(e?.detail?.prefeedFallback)return;
+      lastFastAt=performance.now();
+    });
+    new MutationObserver(()=>{
+      if(!detail.classList.contains('on'))return;
+      const myToken=++token;
+      fallbackFeed(myToken);
+    }).observe(detail,{attributes:true,attributeFilter:['class']});
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
