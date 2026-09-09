@@ -36,16 +36,16 @@
     return out;
   };
   const install=()=>{
-    const old=document.getElementById('storesTable');
-    if(!old||old.dataset.asyncStoreDetail==='1')return;
-    const table=old.cloneNode(true);
+    const table=document.getElementById('storesTable');
+    if(!table||table.dataset.asyncStoreDetail==='1')return;
     table.dataset.asyncStoreDetail='1';
-    old.replaceWith(table);
     window.PanParagonStoreTableWindow?.install?.();
     window.PanParagonStoreTableWindow?.trim?.();
-    table.addEventListener('click',async e=>{
+    document.addEventListener('click',async e=>{
+      const live=document.getElementById('storesTable');
+      if(!live||!live.contains(e.target))return;
       const tr=e.target.closest?.('tr');
-      if(!tr||!table.contains(tr)||tr.rowIndex===0)return;
+      if(!tr||!live.contains(tr)||tr.rowIndex===0)return;
       const name=(tr.querySelectorAll('td')[1]?.textContent||'').trim();
       const api=window.PanParagonStoreDetails,idx=window.PanParagonStoreYearDetail,fast=window.PanParagonStoreClickFast;
       if(!name||!idx?.rowsForStore||(!api?.refreshStore&&!api?.openStore))return;
