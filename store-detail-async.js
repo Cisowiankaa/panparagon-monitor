@@ -35,6 +35,27 @@
     for(const r of list||[]){const d=cachedDate(r);if(d&&String(d.getFullYear())===y)out.push(r)}
     return out;
   };
+  const renderStore=(token,name,year,allStore,api,fast,idx,title)=>{
+    if(token!==openToken||!Array.isArray(allStore))return false;
+    const detail=rowsForSelectedYear(allStore,year,name,fast,idx);
+    if(title)title.textContent=year?`${name} — ${year}`:name;
+    if(typeof api.refreshStore==='function')api.refreshStore(name,detail,allStore);
+    else api.openStore(name,detail,allStore);
+    return true;
+  };
+  const syncRows=(name,fast,idx)=>{
+    try{
+      if(typeof fast?.rowsForStore==='function'){
+        const out=fast.rowsForStore(name);
+        if(Array.isArray(out))return out;
+      }
+      if(typeof idx?.rowsForStore==='function'){
+        const out=idx.rowsForStore(name);
+        if(Array.isArray(out))return out;
+      }
+    }catch{}
+    return null;
+  };
   const install=()=>{
     const table=document.getElementById('storesTable');
     if(!table||table.dataset.asyncStoreDetail==='1')return;
@@ -52,18 +73,24 @@
       e.preventDefault();
       e.stopImmediatePropagation();
       const token=++openToken,year=window.PanParagonStoreFilter?.getYear?.()||'',title=document.getElementById('storeDetailTitle');
+
+      const readyRows=syncRows(name,fast,idx);
+      if(Array.isArray(readyRows)){
+        showDetail();
+        renderStore(token,name,year,readyRows,api,fast,idx,title);
+        return;
+      }
+
       if(title)title.textContent=`${name} — ładowanie…`;
       showDetail();
       await nextPaint();
       if(token!==openToken)return;
-      let allStore;
-      if(fast?.rowsForStoreAsync)allStore=await fast.rowsForStoreAsync(name);
-      else allStore=idx.rowsForStore(name);
-      if(token!==openToken||!Array.isArray(allStore))return;
-      const detail=rowsForSelectedYear(allStore,year,name,fast,idx);
-      if(title)title.textContent=year?`${name} — ${year}`:name;
-      if(typeof api.refreshStore==='function')api.refreshStore(name,detail,allStore);
-      else api.openStore(name,detail,allStore);
+      let allStore=null;
+      try{
+        if(typeof fast?.rowsForStoreAsync==='function')allStore=await fast.rowsForStoreAsync(name);
+        else allStore=idx.rowsForStore(name);
+      }catch{}
+      renderStore(token,name,year,allStore,api,fast,idx,title);
     },true);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
