@@ -7,16 +7,6 @@
     document.querySelectorAll('#nav button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===id));
     try{
       if(id==='months')window.PanParagonOwners?.refreshViews?.();
-      if(id==='stores'){
-        const q=document.getElementById('storeSearch')?.value?.trim()||'';
-        const y=document.getElementById('storeYear')?.value||'';
-        if(q||y){
-          const run=()=>window.PanParagonStoreFilter?.render?.();
-          if('requestAnimationFrame'in window)requestAnimationFrame(()=>requestAnimationFrame(run));
-          else setTimeout(run,0);
-        }
-      }
-      if(id==='integrations'&&typeof user!=='undefined'&&user&&typeof runDiagnostics==='function')runDiagnostics(true);
     }catch(e){console.warn('View refresh fallback',e)}
     return true;
   };
