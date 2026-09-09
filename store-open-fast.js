@@ -15,6 +15,10 @@
     const box=document.getElementById('storeYearTable');
     if(box)box.innerHTML=entries.length?'<table><tr><th>Rok</th><th>Paragony</th></tr>'+entries.map(([y,n])=>`<tr><td>${y}</td><td><b>${n}</b></td></tr>`).join('')+'</table>':'<div class="empty">Brak danych rocznych.</div>';
   };
+  const afterPaint=fn=>{
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>requestAnimationFrame(fn));
+    else setTimeout(fn,32);
+  };
 
   api.openStore=(name,detailSrc,allSrc)=>{
     currentStore=String(name||'');
@@ -38,7 +42,7 @@
         document.dispatchEvent(new CustomEvent('panparagon:store-detail-updated',{detail:{store:currentStore,year:window.PanParagonStoreFilter?.getYear?.()||''}}));
       }
     };
-    setTimeout(run,0);
+    afterPaint(run);
   };
   api.getCurrentStore=()=>currentStore;
 })();
