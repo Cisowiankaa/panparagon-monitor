@@ -1,6 +1,6 @@
 (()=>{
   let openToken=0;
-  const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+  const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   const cachedDate=r=>window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r);
   const clearHeavyDetail=()=>{
     try{window.PanParagonStoreMonthCache?.invalidate?.()}catch{}
@@ -78,7 +78,10 @@
 
       const readyRows=syncRows(name,fast,idx);
       if(Array.isArray(readyRows)){
+        if(title)title.textContent=year?`${name} — ${year}`:name;
         showDetail();
+        await nextPaint();
+        if(token!==openToken)return;
         renderStore(token,name,year,readyRows,api,fast,idx,title);
         return;
       }
