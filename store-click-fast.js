@@ -93,7 +93,7 @@
     ensureSource();
     const n=String(name||''),y=String(year||''),key=`${n}|${y}`;
     if(yearCache.has(key))return yearCache.get(key);
-    if(baseRowsForYear){
+    if(baseRowsForYear&&api?.isReady?.()){
       try{const base=baseRowsForYear(y,n);if(Array.isArray(base)){yearCache.set(key,base);return base}}catch{}
     }
     const out=[];
