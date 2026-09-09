@@ -17,8 +17,8 @@
   };
   const step=deadline=>{
     if(!indexing||!source)return;
-    const src=source,start=pos;
-    while(pos<src.length&&(pos-start<CHUNK||deadline?.timeRemaining?.()>2)){add(src[pos++])}
+    const src=source,startPos=pos;
+    while(pos<src.length&&(pos-startPos<CHUNK||deadline?.timeRemaining?.()>2)){add(src[pos++])}
     if(pos<src.length){idle(step);return}
     indexing=false;ready=true;
   };
@@ -29,7 +29,16 @@
     if(indexing&&source===src)return false;
     reset();source=src;indexing=true;idle(step);return false;
   };
-  const ensureStart=()=>{if(start()||indexing)return;setTimeout(ensureStart,80)};
+  const waitReady=()=>new Promise(resolve=>{
+    const tick=()=>{
+      const src=Array.isArray(rows)?rows:null;
+      if(!src||!src.length){setTimeout(tick,40);return}
+      start();
+      if(ready&&source===rows){resolve(true);return}
+      setTimeout(tick,16);
+    };
+    tick();
+  });
   const original=()=>window.PanParagonStoreYearDetail;
   const wrap=()=>{
     const api=original();if(!api||api.__fastRowIndex)return false;
@@ -42,7 +51,8 @@
   window.PanParagonStoreClickFast={
     isPrewarmed:()=>ready&&source===rows,
     rowsForStore:name=>ready&&source===rows?(byStore.get(name)||[]):null,
-    rowsForYear:(name,year)=>ready&&source===rows?(byStoreYear.get(String(name||'')+'|'+String(year||''))||[]):null,
+    rowsForStoreAsync:async name=>{await waitReady();return byStore.get(name)||[]},
+    rowsForYear:(year,name)=>ready&&source===rows?(byStoreYear.get(String(name||'')+'|'+String(year||''))||[]):null,
     statsForStore:name=>ready&&source===rows?(stats.get(name)||{months:{},years:{},total:0}):null,
     rebuild:()=>{reset();start()},
     status:()=>({ready,indexing,position:pos,total:Array.isArray(source)?source.length:0})
