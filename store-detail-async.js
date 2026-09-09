@@ -44,6 +44,8 @@
     return true;
   };
   const syncRows=(name,fast,idx)=>{
+    const rowIndex=window.PanParagonStoreRowIndex;
+    if(rowIndex&&typeof rowIndex.isReady==='function'&&!rowIndex.isReady())return null;
     try{
       if(typeof fast?.rowsForStore==='function'){
         const out=fast.rowsForStore(name);
