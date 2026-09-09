@@ -91,6 +91,18 @@
     updateInfo();
     return true;
   };
+  const reuseExistingTable=()=>{
+    ensureControls();refreshYears();
+    if(query||year)return false;
+    const box=document.getElementById('storesTable'),table=box?.querySelector('table');
+    if(!table)return false;
+    lastList=storeEntries();
+    lastTotal=lastList.reduce((s,x)=>s+x[1],0);
+    shown=Math.min(PAGE,lastList.length);
+    updateInfo();
+    wireMoreButton();
+    return true;
+  };
   const setYear=(value,opts={})=>{
     ensureControls();refreshYears();
     const next=String(value||''),s=document.getElementById('storeYear');
@@ -103,10 +115,9 @@
   const scheduleNavRender=()=>{
     cancelAnimationFrame(navRaf);
     navRaf=requestAnimationFrame(()=>{
-      navRaf=requestAnimationFrame(()=>{
-        shown=PAGE;
-        if(!primeExistingTable())renderFiltered();
-      });
+      if(reuseExistingTable())return;
+      shown=PAGE;
+      renderFiltered();
     });
   };
   const install=()=>{
