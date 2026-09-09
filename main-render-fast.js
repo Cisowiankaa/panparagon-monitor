@@ -1,7 +1,7 @@
 (()=>{
   if(typeof window.render!=='function')return;
   const original=window.render,originalReport=typeof window.buildReport==='function'?window.buildReport:null;
-  const OWNER_KEY='__ppm_owner',SNAPSHOT_KEY='ppm_dashboard_snapshot_v1',STORE_TABLE_LIMIT=60;
+  const OWNER_KEY='__ppm_owner',SNAPSHOT_KEY='ppm_dashboard_snapshot_v1',STORE_TABLE_LIMIT=30;
   const storeName=r=>{try{return (r[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const ownerName=r=>r?.[OWNER_KEY]==='mama'?'mama':'ja';
   const dcache=()=>window.PanParagonDateCache;
