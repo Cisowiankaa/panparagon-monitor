@@ -19,6 +19,7 @@ export default async function handler(req,res){
       ['store-date-cache.js',3],
       ['store-row-index.js',1],
       ['data-event-compat.js',1],
+      ['dashboard-rank-window.js',1],
       ['main-render-fast.js',11],
       ['owner-import.js',15],
       ['owner-count-fast.js',1],
