@@ -44,6 +44,10 @@
     totalCache.set(key,entries.reduce((s,x)=>s+Number(x[1]||0),0));
     return entries;
   };
+  const visibleSig=()=>{
+    const visible=lastList.slice(0,shown);
+    return `${year}|${shown}|${lastList.length}|${visible.map(([n,c])=>`${n}\u0001${c}`).join('\u0002')}`;
+  };
   const wireMoreButton=()=>{
     const box=document.getElementById('storesTable');if(!box)return;
     let wrap=document.getElementById('storeLoadMoreWrap');const remaining=Math.max(0,lastList.length-Math.min(shown,lastList.length));
@@ -54,7 +58,7 @@
   const renderRows=()=>{
     const box=document.getElementById('storesTable');if(!box)return;
     if(!lastList.length){if(lastRowsSig!=='empty'){box.innerHTML='<div class="empty">Brak sklepów pasujących do filtrów.</div>';lastRowsSig='empty'}return}
-    const visible=lastList.slice(0,shown),more=visible.length<lastList.length,sig=`${year}|${shown}|${lastList.length}|${visible.map(([n,c])=>`${n}\u0001${c}`).join('\u0002')}`;
+    const visible=lastList.slice(0,shown),more=visible.length<lastList.length,sig=visibleSig();
     if(sig===lastRowsSig){wireMoreButton();return}
     lastRowsSig=sig;box.innerHTML=`<table><tr><th>#</th><th>Sklep</th><th>Paragony${year?' · '+year:''}</th></tr>${visible.map(([n,c],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td><b>${c}</b></td></tr>`).join('')}</table>`;if(more)wireMoreButton();
   };
@@ -65,8 +69,17 @@
     lastTotal=query?lastList.reduce((s,x)=>s+Number(x[1]||0),0):(totalCache.get(key)??base.reduce((s,x)=>s+Number(x[1]||0),0));
     renderRows();updateInfo();
   };
-  const primeExistingTable=()=>{ensureControls();refreshYears();if(query||year)return false;const box=document.getElementById('storesTable'),table=box?.querySelector('table');if(!table)return false;lastList=storeEntries();lastTotal=totalCache.get('*')??lastList.reduce((s,x)=>s+Number(x[1]||0),0);shown=Math.min(PAGE,lastList.length);lastRowsSig='';renderRows();updateInfo();return true};
-  const reuseExistingTable=()=>{ensureControls();refreshYears();if(query||year)return false;const box=document.getElementById('storesTable'),table=box?.querySelector('table');if(!table)return false;lastList=storeEntries();lastTotal=totalCache.get('*')??lastList.reduce((s,x)=>s+Number(x[1]||0),0);shown=Math.min(PAGE,lastList.length);lastRowsSig='';renderRows();updateInfo();return true};
+  const adoptExistingTable=()=>{
+    ensureControls();refreshYears();if(query||year)return false;
+    const box=document.getElementById('storesTable'),table=box?.querySelector('table');if(!table)return false;
+    lastList=storeEntries();lastTotal=totalCache.get('*')??lastList.reduce((s,x)=>s+Number(x[1]||0),0);shown=Math.min(PAGE,lastList.length);
+    const domRows=[...table.querySelectorAll('tr')].slice(1),visible=lastList.slice(0,shown);
+    const matches=domRows.length===visible.length&&domRows.every((tr,i)=>{const cells=tr.querySelectorAll('td');return (cells[1]?.textContent||'').trim()===String(visible[i]?.[0]||'')&&Number((cells[2]?.textContent||'').replace(/\s/g,''))===Number(visible[i]?.[1]||0)});
+    if(!matches)return false;
+    lastRowsSig=visibleSig();wireMoreButton();updateInfo();return true;
+  };
+  const primeExistingTable=()=>adoptExistingTable();
+  const reuseExistingTable=()=>adoptExistingTable();
   const setYear=(value,opts={})=>{ensureControls();refreshYears();const next=String(value||''),s=document.getElementById('storeYear');year=s&&[...s.options].some(o=>o.value===next)?next:'';if(s)s.value=year;if(opts.render!==false){shown=PAGE;lastRowsSig='';renderFiltered()}if(opts.notify!==false)document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}));return year};
   const scheduleNavRender=()=>{cancelAnimationFrame(navRaf);navRaf=requestAnimationFrame(()=>{if(reuseExistingTable())return;shown=PAGE;renderFiltered()})};
   const install=()=>{
