@@ -66,7 +66,7 @@
     renderRows();updateInfo();
   };
   const primeExistingTable=()=>{ensureControls();refreshYears();if(query||year)return false;const box=document.getElementById('storesTable'),table=box?.querySelector('table');if(!table)return false;lastList=storeEntries();lastTotal=totalCache.get('*')??lastList.reduce((s,x)=>s+Number(x[1]||0),0);shown=Math.min(PAGE,lastList.length);lastRowsSig='';renderRows();updateInfo();return true};
-  const reuseExistingTable=()=>{ensureControls();refreshYears();if(query||year)return false;const box=document.getElementById('storesTable'),table=box?.querySelector('table');if(!table)return false;lastList=storeEntries();lastTotal=totalCache.get('*')??lastList.reduce((s,x)=>s+Number(x[1]||0),0);shown=Math.min(PAGE,lastList.length);updateInfo();wireMoreButton();return true};
+  const reuseExistingTable=()=>{ensureControls();refreshYears();if(query||year)return false;const box=document.getElementById('storesTable'),table=box?.querySelector('table');if(!table)return false;lastList=storeEntries();lastTotal=totalCache.get('*')??lastList.reduce((s,x)=>s+Number(x[1]||0),0);shown=Math.min(PAGE,lastList.length);lastRowsSig='';renderRows();updateInfo();return true};
   const setYear=(value,opts={})=>{ensureControls();refreshYears();const next=String(value||''),s=document.getElementById('storeYear');year=s&&[...s.options].some(o=>o.value===next)?next:'';if(s)s.value=year;if(opts.render!==false){shown=PAGE;lastRowsSig='';renderFiltered()}if(opts.notify!==false)document.dispatchEvent(new CustomEvent('panparagon:store-year-changed',{detail:{year}}));return year};
   const scheduleNavRender=()=>{cancelAnimationFrame(navRaf);navRaf=requestAnimationFrame(()=>{if(reuseExistingTable())return;shown=PAGE;renderFiltered()})};
   const install=()=>{
