@@ -3,8 +3,15 @@
     if(!id)return false;
     const target=document.getElementById(id);
     if(!target||!target.classList.contains('view'))return false;
-    document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v===target));
-    document.querySelectorAll('#nav button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===id));
+
+    const activeViews=document.querySelectorAll('.view.on');
+    const activeButton=document.querySelector(`#nav button[data-v="${CSS.escape(id)}"].on`);
+    const alreadyCorrect=activeViews.length===1&&activeViews[0]===target&&!!activeButton;
+
+    if(!alreadyCorrect){
+      document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v===target));
+      document.querySelectorAll('#nav button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===id));
+    }
     try{
       if(id==='months')window.PanParagonOwners?.refreshViews?.();
     }catch(e){console.warn('View refresh fallback',e)}
