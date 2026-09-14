@@ -28,7 +28,7 @@ export default async function handler(req,res){
       ['owner-view-stabilize.js',4],
       ['sync-history-cache.js',1],
       ['store-details.js',4],
-      ['store-list-fast.js',1],
+      ['store-list-fast.js',2],
       ['store-table-window.js',3],
       ['store-fast-refresh.js',7],
       ['store-refresh-dedupe.js',2],
