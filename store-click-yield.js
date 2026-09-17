@@ -1,10 +1,11 @@
 (()=>{
   const fast=window.PanParagonStoreClickFast;
-  if(!fast||typeof fast.rowsForStoreAsync!=='function'||fast.__yield250)return;
-  fast.__yield250=true;
+  if(!fast||typeof fast.rowsForStoreAsync!=='function'||fast.__yieldAdaptive)return;
+  fast.__yieldAdaptive=true;
 
   const baseAsync=fast.rowsForStoreAsync.bind(fast);
-  const CHUNK=250;
+  const MAX_CHUNK=1200;
+  const BUDGET_MS=5;
   let source=null,sourceLen=-1,storeKey='',generation=0;
   const pending=new Map();
 
@@ -30,15 +31,17 @@
     const promise=new Promise(resolve=>{
       const step=()=>{
         if(gen!==generation||src!==source){pending.delete(key);resolve([]);return}
-        const end=Math.min(i+CHUNK,src.length);
-        for(;i<end;i++){const r=src[i];if(storeName(r)===key)out.push(r)}
+        const started=performance.now(),hardEnd=Math.min(i+MAX_CHUNK,src.length);
+        for(;i<hardEnd;i++){
+          const r=src[i];if(storeName(r)===key)out.push(r);
+          if((i&63)===63&&performance.now()-started>=BUDGET_MS){i++;break}
+        }
         if(i<src.length){nextFrame(step);return}
         pending.delete(key);resolve(out);
       };
       step();
     });
-    pending.set(key,promise);
-    return promise;
+    pending.set(key,promise);return promise;
   };
 
   document.addEventListener('panparagon:data-changed',e=>{
@@ -46,5 +49,5 @@
     source=null;sourceLen=-1;storeKey='';generation++;pending.clear();
   });
 
-  window.PanParagonStoreClickYield={chunk:CHUNK};
+  window.PanParagonStoreClickYield={maxChunk:MAX_CHUNK,budgetMs:BUDGET_MS,adaptive:true};
 })();
