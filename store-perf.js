@@ -17,7 +17,9 @@
     const el=ensurePanel();if(!el)return;
     const parts=[];
     if(Number.isFinite(state.storesNavPaintMs))parts.push(`lista ${state.storesNavPaintMs} ms`);
-    if(Number.isFinite(state.rowsForStoreMs))parts.push(`rekordy ${state.rowsForStoreMs} ms`);
+    if(Number.isFinite(state.fastRowsSyncMs))parts.push(`rekordy sync ${state.fastRowsSyncMs} ms`);
+    if(Number.isFinite(state.fastRowsAsyncMs))parts.push(`rekordy async ${state.fastRowsAsyncMs} ms`);
+    if(Number.isFinite(state.rowsForStoreMs)&&!Number.isFinite(state.fastRowsSyncMs)&&!Number.isFinite(state.fastRowsAsyncMs))parts.push(`rekordy ${state.rowsForStoreMs} ms`);
     if(Number.isFinite(state.refreshStoreMs))parts.push(`render ${state.refreshStoreMs} ms`);
     if(Number.isFinite(state.detailStablePaintMs))parts.push(`paint ${state.detailStablePaintMs} ms`);
     el.textContent=parts.length?'Sklepy · wydajność: '+parts.join(' · '):'Sklepy · wydajność: gotowe do pomiaru';
@@ -35,19 +37,36 @@
     const idx=window.PanParagonStoreYearDetail;
     if(idx?.rowsForStore&&!idx.rowsForStore.__ppmPerf){
       const base=idx.rowsForStore;
-      const fn=function(...args){const t=now(),out=base.apply(this,args);state.rowsForStoreMs=round(now()-t);state.storeRows=Array.isArray(out)?out.length:0;return out};
+      const fn=function(...args){const t=now(),out=base.apply(this,args);state.rowsForStoreMs=round(now()-t);state.storeRows=Array.isArray(out)?out.length:0;save();return out};
       fn.__ppmPerf=true;idx.rowsForStore=fn;
     }
+
+    const fast=window.PanParagonStoreClickFast;
+    if(fast?.rowsForStore&&!fast.rowsForStore.__ppmPerf){
+      const base=fast.rowsForStore;
+      const fn=function(...args){const t=now(),out=base.apply(this,args);state.fastRowsSyncMs=round(now()-t);state.storeRows=Array.isArray(out)?out.length:0;save();return out};
+      fn.__ppmPerf=true;fast.rowsForStore=fn;
+    }
+    if(fast?.rowsForStoreAsync&&!fast.rowsForStoreAsync.__ppmPerf){
+      const base=fast.rowsForStoreAsync;
+      const fn=function(...args){
+        const t=now(),out=base.apply(this,args);
+        if(!out||typeof out.then!=='function'){state.fastRowsAsyncMs=round(now()-t);state.storeRows=Array.isArray(out)?out.length:0;save();return out}
+        return out.then(value=>{state.fastRowsAsyncMs=round(now()-t);state.storeRows=Array.isArray(value)?value.length:0;save();return value},err=>{state.fastRowsAsyncMs=round(now()-t);save();throw err});
+      };
+      fn.__ppmPerf=true;fast.rowsForStoreAsync=fn;
+    }
+
     const api=window.PanParagonStoreDetails;
     if(api?.refreshStore&&!api.refreshStore.__ppmPerf){
       const base=api.refreshStore;
-      const fn=function(...args){const t=now(),out=base.apply(this,args);state.refreshStoreMs=round(now()-t);return out};
+      const fn=function(...args){const t=now(),out=base.apply(this,args);state.refreshStoreMs=round(now()-t);save();return out};
       fn.__ppmPerf=true;api.refreshStore=fn;
     }
   };
 
   const install=()=>{
-    ensurePanel();renderPanel();wrap();setTimeout(wrap,250);
+    ensurePanel();renderPanel();wrap();setTimeout(wrap,250);setTimeout(wrap,1000);
     document.addEventListener('click',e=>{
       const nav=e.target.closest?.('#nav button[data-v="stores"]');
       if(nav){const t=now();for(const k of Object.keys(state))delete state[k];paint('storesNavPaintMs',t);return}
@@ -55,7 +74,7 @@
       if(tr&&table?.contains(tr)&&tr.rowIndex!==0){
         const t=now();for(const k of Object.keys(state))delete state[k];
         state.store=(tr.querySelectorAll('td')[1]?.textContent||'').trim();state.storeClickStartRaw=t;
-        setTimeout(wrap,0);
+        wrap();
       }
     },true);
     document.addEventListener('panparagon:store-detail-updated',()=>{
