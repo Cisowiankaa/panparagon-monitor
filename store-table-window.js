@@ -47,20 +47,10 @@
     next.appendChild(frag);next.dataset.ppmWindowed='1';table.replaceWith(next);
   };
 
-  const schedule=()=>queueMicrotask(trim);
-  const base=typeof window.render==='function'?window.render:null;
-  if(base){
-    window.render=function(...args){
-      installWriteWindow();
-      const out=base.apply(this,args);
-      trim();
-      return out;
-    };
-  }
-  document.addEventListener('DOMContentLoaded',installWriteWindow,{once:true});
-  document.addEventListener('panparagon:data-changed',e=>{
-    if(e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast')schedule();
-  });
+  // main-render-fast already writes at most LIMIT store rows. The innerHTML
+  // setter above is enough to protect fallback/legacy renders too, so wrapping
+  // every render and scheduling a second trim only duplicates DOM work.
+  document.addEventListener('DOMContentLoaded',()=>{installWriteWindow();trim()},{once:true});
   installWriteWindow();trim();
   window.PanParagonStoreTableWindow={trim,limit:LIMIT,install:installWriteWindow};
 })();
