@@ -44,6 +44,13 @@
   const availableYears=()=>{
     const name=lastStore||baseStoreName();if(!name)return[];ensureSignature();
     if(yearsCache.has(name))return yearsCache.get(name);
+    try{
+      const stats=window.PanParagonStoreClickFast?.statsForStore?.(name),years=stats?.years;
+      if(years&&typeof years==='object'){
+        const out=Object.keys(years).map(Number).filter(Number.isFinite).sort((a,b)=>b-a);
+        yearsCache.set(name,out);return out;
+      }
+    }catch{}
     const set=new Set();for(const r of rowsForStore(name)){try{const y=cachedRowDate(r)?.getFullYear();if(y)set.add(y)}catch{}}
     const out=[...set].sort((a,b)=>b-a);yearsCache.set(name,out);return out;
   };
