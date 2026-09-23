@@ -39,7 +39,7 @@ export default async function handler(req,res){
       ['store-nav-pretrim.js',2],
       ['store-year-detail.js',19],
       ['store-click-fast.js',6],
-      ['store-click-yield.js',2],
+      ['store-click-yield.js',3],
       ['dashboard-store-click.js',1],
       ['store-detail-async.js',7],
       ['store-month-cache.js',5],
