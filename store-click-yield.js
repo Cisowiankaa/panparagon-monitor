@@ -4,8 +4,8 @@
   fast.__yieldAdaptive=true;
 
   const baseAsync=fast.rowsForStoreAsync.bind(fast);
-  const MAX_CHUNK=1200;
-  const BUDGET_MS=5;
+  const MAX_CHUNK=500;
+  const BUDGET_MS=3;
   let source=null,sourceLen=-1,storeKey='',generation=0;
   const pending=new Map();
 
@@ -34,7 +34,7 @@
         const started=performance.now(),hardEnd=Math.min(i+MAX_CHUNK,src.length);
         for(;i<hardEnd;i++){
           const r=src[i];if(storeName(r)===key)out.push(r);
-          if((i&63)===63&&performance.now()-started>=BUDGET_MS){i++;break}
+          if((i&31)===31&&performance.now()-started>=BUDGET_MS){i++;break}
         }
         if(i<src.length){nextFrame(step);return}
         pending.delete(key);resolve(out);
