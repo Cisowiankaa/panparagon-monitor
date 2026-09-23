@@ -1,10 +1,10 @@
 (()=>{
-  const CHUNK=700;
+  const CHUNK=250;
   let source=null,indexing=false,ready=false,pos=0;
   let byStore=new Map(),byStoreYear=new Map(),stats=new Map();
   const storeName=r=>{try{return (r?.[storeCol]||'Nieznany sklep').trim()||'Nieznany sklep'}catch{return'Nieznany sklep'}};
   const rowDateFast=r=>{try{return window.PanParagonDateCache?.get?window.PanParagonDateCache.get(r):rowDate(r)}catch{return null}};
-  const idle=fn=>{'requestIdleCallback'in window?requestIdleCallback(fn,{timeout:120}):setTimeout(()=>fn({timeRemaining:()=>8,didTimeout:true}),16)};
+  const idle=fn=>{'requestIdleCallback'in window?requestIdleCallback(fn,{timeout:180}):setTimeout(()=>fn({timeRemaining:()=>6,didTimeout:true}),16)};
   const reset=()=>{source=Array.isArray(rows)?rows:null;indexing=false;ready=false;pos=0;byStore=new Map();byStoreYear=new Map();stats=new Map()};
   const add=r=>{
     const name=storeName(r);
@@ -18,7 +18,9 @@
   const step=deadline=>{
     if(!indexing||!source)return;
     const src=source,startPos=pos;
-    while(pos<src.length&&(pos-startPos<CHUNK||deadline?.timeRemaining?.()>2)){add(src[pos++])}
+    const hasBudget=()=>deadline?.didTimeout||!deadline?.timeRemaining||deadline.timeRemaining()>1;
+    while(pos<src.length&&pos-startPos<CHUNK&&hasBudget())add(src[pos++]);
+    if(pos===startPos&&pos<src.length)add(src[pos++]);
     if(pos<src.length){idle(step);return}
     indexing=false;ready=true;
   };
@@ -55,7 +57,7 @@
     rowsForYear:(year,name)=>ready&&source===rows?(byStoreYear.get(String(name||'')+'|'+String(year||''))||[]):null,
     statsForStore:name=>ready&&source===rows?(stats.get(name)||{months:{},years:{},total:0}):null,
     rebuild:()=>{reset();start()},
-    status:()=>({ready,indexing,position:pos,total:Array.isArray(source)?source.length:0})
+    status:()=>({ready,indexing,position:pos,total:Array.isArray(source)?source.length:0,chunk:CHUNK})
   };
   document.addEventListener('panparagon:data-changed',e=>{if(e?.detail?.reason==='main-render-fast'||e?.detail?.source==='main-render-fast')return;reset();start()});
   let tries=0;const boot=()=>{tries++;wrap();if(Array.isArray(rows)&&rows.length)start();if((!wrap()||!Array.isArray(rows)||!rows.length)&&tries<120)setTimeout(boot,50)};
